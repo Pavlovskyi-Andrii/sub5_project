@@ -113,22 +113,32 @@ def connect_to_google_sheets():
         raise
 
 def parse_date(date_str):
-    """Парсинг даты из таблицы в формат datetime"""
-    try:
-        # Формат DD.MM.YY или DD.MM.YYYY
-        parts = date_str.strip().split('.')
-        if len(parts) >= 2:
-            day = int(parts[0])
-            month = int(parts[1])
-            year = int(parts[2]) if len(parts) > 2 else datetime.now().year
+    """Парсинг даты из таблицы в формат datetime с поддержкой regex"""
+    import re
+    
+    if not date_str:
+        return None
+    
+    # Ищем первый паттерн даты вида DD.MM или DD.MM.YY или DD.MM.YYYY
+    match = re.search(r'(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?', date_str)
+    
+    if match:
+        try:
+            day = int(match.group(1))
+            month = int(match.group(2))
+            year_str = match.group(3)
             
-            # Если год двузначный, добавляем 2000
-            if year < 100:
-                year += 2000
+            if year_str:
+                year = int(year_str)
+                if year < 100:
+                    year += 2000
+            else:
+                year = datetime.now().year
             
             return datetime(year, month, day)
-    except:
-        pass
+        except:
+            pass
+    
     return None
 
 def format_time(seconds):
@@ -266,6 +276,13 @@ def sync_to_sheet(garmin_client, worksheet, column):
         date_str = row_data[col_index]
         date_obj = parse_date(date_str)
         
+        # Если в строке блока нет даты, проверяем строку 1 (заголовки недель)
+        if not date_obj:
+            row1 = worksheet.row_values(1)
+            if col_index < len(row1):
+                date_str = row1[col_index]
+                date_obj = parse_date(date_str)
+        
         if not date_obj:
             continue
         
@@ -286,7 +303,85 @@ def sync_to_sheet(garmin_client, worksheet, column):
         print(f"  🏃 Бег: {len(running_activities)} тренировок")
         
         # Определяем куда записывать данные
-        if 'БЕГ' in name.upper() or 'RUN' in name.upper():
+        # Сначала проверяем комбинированные блоки (вел+бег, например суббота)
+        if ('ВЕЛ' in name.upper() or 'BIKE' in name.upper()) and ('БЕГ' in name.upper() or 'RUN' in name.upper()):
+            # Это комбинированный блок (суббота: 2 вел + 1 бег)
+            # Сначала записываем велосипед
+            if cycling_activities:
+                cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])
+                col_a = worksheet.col_values(1)
+                
+                def format_values(values_list):
+                    if len(values_list) >= 2:
+                        return f"{values_list[0]}/{values_list[1]}"
+                    elif len(values_list) == 1:
+                        return values_list[0]
+                    return ''
+                
+                avg_power_str = format_values(cycle_data['avg_power'])
+                np_str = format_values(cycle_data['normalized_power'])
+                speed_str = format_values(cycle_data['avg_speed'])
+                cadence_str = format_values(cycle_data['avg_cadence'])
+                hr_str = format_values(cycle_data['avg_hr'])
+                
+                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
+                
+                # Ищем строки в пределах блока
+                block_end = len(col_a)
+                for next_idx in range(row_num, len(col_a)):
+                    next_text = col_a[next_idx].strip().upper()
+                    if next_text and next_idx > row_num and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'ЛОНГ', 'ИНТЕРВАЛ', 'КОРОТКИЕ']):
+                        block_end = next_idx
+                        break
+                
+                print(f"  🔍 Ищем вел данные с row {row_num} до {block_end}")
+                
+                for search_idx in range(row_num - 1, min(block_end, len(col_a))):
+                    cell_text = col_a[search_idx].strip().lower()
+                    actual_row = search_idx + 1
+                    
+                    if 'средн' in cell_text and 'ват' in cell_text:
+                        if avg_power_str:
+                            worksheet.update_cell(actual_row, col_index + 1, avg_power_str)
+                            print(f"  ✓ Средние ваты: {avg_power_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'normalized' in cell_text or ('power' in cell_text and 'norm' in cell_text):
+                        if np_str:
+                            worksheet.update_cell(actual_row, col_index + 1, np_str)
+                            print(f"  ✓ Normalized Power: {np_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'сред' in cell_text and 'скор' in cell_text:
+                        if speed_str:
+                            worksheet.update_cell(actual_row, col_index + 1, speed_str)
+                            print(f"  ✓ Средняя скорость: {speed_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чсс' in cell_text:
+                        if hr_str:
+                            worksheet.update_cell(actual_row, col_index + 1, hr_str)
+                            print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}{actual_row}")
+            
+            # Потом записываем бег
+            if running_activities:
+                run_data = process_running_data(garmin_client, running_activities[0])
+                # Ищем строки "Бег брик" и "ЧСС бег" для записи
+                for search_idx in range(row_num - 1, min(row_num + 20, len(col_a))):
+                    cell_text = col_a[search_idx].strip().lower()
+                    actual_row = search_idx + 1
+                    
+                    if 'бег' in cell_text and 'брик' in cell_text:
+                        # Записываем описание бега
+                        desc = f"{run_data.get('distance', '')} {run_data.get('pace', '')}"
+                        if desc.strip():
+                            worksheet.update_cell(actual_row, col_index + 1, desc)
+                            print(f"  ✓ Бег брик: {desc} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'чсс' in cell_text and 'бег' in cell_text:
+                        if run_data.get('hr'):
+                            hr_only = run_data['hr'].replace(' уд./мин', '')
+                            worksheet.update_cell(actual_row, col_index + 1, hr_only)
+                            print(f"  ✓ ЧСС бег: {hr_only} → {chr(64+col_index+1)}{actual_row}")
+        
+        elif 'БЕГ' in name.upper() or 'RUN' in name.upper():
             # Это блок бега
             if running_activities:
                 run_data = process_running_data(garmin_client, running_activities[0])
@@ -307,25 +402,76 @@ def sync_to_sheet(garmin_client, worksheet, column):
             if cycling_activities:
                 cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])  # Макс 2 тренировки
                 
-                # Определяем строки для записи
-                # Нужно найти где именно записывать (может быть разная структура)
-                # Пока записываем по аналогии: Средние ваты, NP, Скорость, Каденс, ЧСС
+                # Ищем строки для записи в столбце A
+                col_a = worksheet.col_values(1)
                 
-                # Ищем строки с текстом в столбце A
-                # Пропустим это и просто запишем данные через слеш если их 2
-                if len(cycle_data['avg_power']) >= 2:
-                    avg_power_str = f"{cycle_data['avg_power'][0]}/{cycle_data['avg_power'][1]}"
-                elif len(cycle_data['avg_power']) == 1:
-                    avg_power_str = cycle_data['avg_power'][0]
-                else:
-                    avg_power_str = ''
+                # Формируем данные (через слеш если 2 тренировки)
+                def format_values(values_list):
+                    if len(values_list) >= 2:
+                        return f"{values_list[0]}/{values_list[1]}"
+                    elif len(values_list) == 1:
+                        return values_list[0]
+                    return ''
                 
-                # Аналогично для других метрик
-                print(f"  ✓ Средние ваты: {avg_power_str}")
+                avg_power_str = format_values(cycle_data['avg_power'])
+                np_str = format_values(cycle_data['normalized_power'])
+                speed_str = format_values(cycle_data['avg_speed'])
+                cadence_str = format_values(cycle_data['avg_cadence'])
+                hr_str = format_values(cycle_data['avg_hr'])
                 
-                # TODO: нужно определить точные строки для записи
-                # Пока просто выведем информацию
-                print(f"  ℹ️  Данные готовы к записи (нужно уточнить строки)")
+                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
+                
+                # Ищем строки по тексту в колонке A (только в пределах блока)
+                # row_num - это уже 1-based индекс из enumerate
+                # col_a - это список со строками, индексы с 0
+                
+                # Находим конец блока (следующий заголовок блока или конец таблицы)
+                block_end = len(col_a)
+                for next_idx in range(row_num, len(col_a)):
+                    next_text = col_a[next_idx].strip().upper()
+                    if next_text and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ']):
+                        # Это следующий блок
+                        block_end = next_idx
+                        break
+                
+                print(f"  🔍 Ищем с row {row_num} до {block_end}")
+                
+                for search_idx in range(row_num - 1, min(block_end, len(col_a))):
+                    cell_text = col_a[search_idx].strip().lower()
+                    actual_row = search_idx + 1  # Реальный номер строки в Google Sheets
+                    
+                    if 'средн' in cell_text and 'ват' in cell_text:
+                        if avg_power_str:
+                            worksheet.update_cell(actual_row, col_index + 1, avg_power_str)
+                            print(f"  ✓ Средние ваты: {avg_power_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'normalized' in cell_text or ('power' in cell_text and 'norm' in cell_text):
+                        if np_str:
+                            worksheet.update_cell(actual_row, col_index + 1, np_str)
+                            print(f"  ✓ Normalized Power: {np_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'сред' in cell_text and 'скор' in cell_text:
+                        if speed_str:
+                            worksheet.update_cell(actual_row, col_index + 1, speed_str)
+                            print(f"  ✓ Средняя скорость: {speed_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'частот' in cell_text and 'вращ' in cell_text:
+                        if cadence_str:
+                            worksheet.update_cell(actual_row, col_index + 1, cadence_str)
+                            print(f"  ✓ Частота вращения: {cadence_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    # Различаем ЧП (каденс) и ЧСС (пульс)
+                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чп' in cell_text and 'чсс' not in cell_text:
+                        # Это каденс (ЧП = частота педалирования)
+                        if cadence_str:
+                            worksheet.update_cell(actual_row, col_index + 1, cadence_str)
+                            print(f"  ✓ Средняя ЧП (каденс): {cadence_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чсс' in cell_text:
+                        # Это пульс (ЧСС)
+                        if hr_str:
+                            worksheet.update_cell(actual_row, col_index + 1, hr_str)
+                            print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}{actual_row}")
 
 def main():
     try:
