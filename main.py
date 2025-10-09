@@ -87,6 +87,7 @@ def connect_to_google_sheets():
     
     if service_account_json:
         creds_dict = json.loads(service_account_json)
+        service_account_email = creds_dict.get('client_email', 'UNKNOWN')
         creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
         print("Connecting to Google Sheets with service account...")
     else:
@@ -94,9 +95,23 @@ def connect_to_google_sheets():
         raise ValueError("SERVICE_ACCOUNT_JSON is required")
     
     client = gspread.authorize(creds)
-    sheet = client.open_by_url(spreadsheet_url)
-    print(f"Successfully connected to Google Sheet!")
-    return sheet
+    
+    try:
+        sheet = client.open_by_url(spreadsheet_url)
+        print(f"✓ Successfully connected to Google Sheet!")
+        return sheet
+    except PermissionError:
+        print("\n" + "="*60)
+        print("❌ ОШИБКА ДОСТУПА К GOOGLE ТАБЛИЦЕ")
+        print("="*60)
+        print(f"\nВам нужно дать доступ к таблице для Service Account!")
+        print(f"\n1. Откройте таблицу: {spreadsheet_url}")
+        print(f"2. Нажмите 'Настроить доступ' (Share)")
+        print(f"3. Добавьте этот email с правами 'Редактор':")
+        print(f"\n   {service_account_email}")
+        print(f"\n4. Нажмите 'Готово' и запустите скрипт снова")
+        print("="*60 + "\n")
+        raise
 
 def get_cycling_activities(garmin_client, days=7):
     """Получение велосипедных тренировок за последние дни"""
