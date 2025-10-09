@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import json
-from pathlib import Path
 from datetime import datetime, timedelta
 from garminconnect import Garmin
 import gspread
@@ -11,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def connect_to_garmin():
-    """Подключение к Garmin Connect через Garth"""
+    """Подключение к Garmin Connect"""
     email = os.getenv('GARMIN_EMAIL')
     password = os.getenv('GARMIN_PASSWORD')
     session_data = os.getenv('SESSION_SECRET')
@@ -113,187 +112,247 @@ def connect_to_google_sheets():
         print("="*60 + "\n")
         raise
 
-def get_cycling_activities(garmin_client, days=7):
-    """Получение велосипедных тренировок за последние дни"""
-    activities = garmin_client.get_activities(0, days * 5)
-    cycling_activities = []
-    
-    cutoff_date = (datetime.today() - timedelta(days=days)).date()
-    
-    for activity in activities:
-        activity_type = activity.get('activityType', {}).get('typeKey', '')
-        start_time_str = activity.get('startTimeLocal', '')
-        
-        if start_time_str:
-            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if activity_date >= cutoff_date and 'cycling' in activity_type.lower():
-                cycling_activities.append(activity)
-    
-    return cycling_activities
-
-def get_running_activities(garmin_client, days=7):
-    """Получение беговых тренировок за последние дни"""
-    activities = garmin_client.get_activities(0, days * 5)
-    running_activities = []
-    
-    cutoff_date = (datetime.today() - timedelta(days=days)).date()
-    
-    for activity in activities:
-        activity_type = activity.get('activityType', {}).get('typeKey', '')
-        start_time_str = activity.get('startTimeLocal', '')
-        
-        if start_time_str:
-            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if activity_date >= cutoff_date and 'running' in activity_type.lower():
-                running_activities.append(activity)
-    
-    return running_activities
+def parse_date(date_str):
+    """Парсинг даты из таблицы в формат datetime"""
+    try:
+        # Формат DD.MM.YY или DD.MM.YYYY
+        parts = date_str.strip().split('.')
+        if len(parts) >= 2:
+            day = int(parts[0])
+            month = int(parts[1])
+            year = int(parts[2]) if len(parts) > 2 else datetime.now().year
+            
+            # Если год двузначный, добавляем 2000
+            if year < 100:
+                year += 2000
+            
+            return datetime(year, month, day)
+    except:
+        pass
+    return None
 
 def format_time(seconds):
-    """Форматирование времени из секунд"""
+    """Форматирование времени из секунд в ЧЧ:ММ:СС"""
     if not seconds:
-        return ""
+        return ''
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)
-    return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+    return f"{hours}:{minutes:02d}:{secs:02d}"
 
 def format_pace(speed_mps):
     """Форматирование темпа из м/с в мин/км"""
     if not speed_mps or speed_mps == 0:
-        return ""
+        return ''
     pace_min_per_km = 1000 / (speed_mps * 60)
     minutes = int(pace_min_per_km)
     seconds = int((pace_min_per_km - minutes) * 60)
     return f"{minutes}:{seconds:02d}"
 
-def add_cycling_data(sheet, activity, garmin_client):
-    """Добавление данных велосипеда в таблицу"""
-    try:
-        cycling_sheet = sheet.worksheet("Вел")
-    except:
-        print("Sheet 'Вел' not found, creating it...")
-        cycling_sheet = sheet.add_worksheet(title="Вел", rows=100, cols=15)
-        headers = ["Дата", "Средние ваты", "Normalized Power", "Сред.скор", 
-                   "Частота вращения", "Средняя ЧСС", "Субъективное ощущение",
-                   "Бег брик", "ЧСС бег", "TTV dist", "TTV time", "ActivityID"]
-        cycling_sheet.append_row(headers)
+def get_activities_for_date(garmin_client, target_date):
+    """Получить все тренировки за конкретную дату"""
+    # Получаем тренировки за этот день
+    activities = garmin_client.get_activities(0, 50)  # Берем последние 50 тренировок
     
-    activity_id = str(activity['activityId'])
+    result = []
+    for activity in activities:
+        start_time_str = activity.get('startTimeLocal', '')
+        if start_time_str:
+            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
+            if activity_date == target_date.date():
+                result.append(activity)
     
-    try:
-        existing_ids = cycling_sheet.col_values(12)[1:]
-        if activity_id in existing_ids:
-            date_str = activity.get('startTimeLocal', '').split()[0]
-            print(f"Skipping cycling activity from {date_str} (already exists)")
-            return
-    except:
-        pass
-    
-    details = garmin_client.get_activity(int(activity_id))
-    date_str = activity.get('startTimeLocal', '').split()[0]
-    
-    avg_power = details.get('avgPower', '')
-    normalized_power = details.get('normalizedPower', '')
-    avg_speed = round(details.get('averageSpeed', 0) * 3.6, 2) if details.get('averageSpeed') else ''
-    avg_cadence = details.get('averageBikingCadenceInRevPerMinute', '')
-    avg_hr = details.get('averageHR', '')
-    
-    row = [
-        date_str,
-        avg_power,
-        normalized_power,
-        avg_speed,
-        avg_cadence,
-        avg_hr,
-        '',
-        '',
-        '',
-        '',
-        '',
-        activity_id
-    ]
-    
-    cycling_sheet.append_row(row)
-    print(f"✓ Added cycling activity from {date_str}")
+    return result
 
-def add_running_data(sheet, activity, garmin_client):
-    """Добавление данных бега в таблицу"""
-    try:
-        running_sheet = sheet.worksheet("Бег")
-    except:
-        print("Sheet 'Бег' not found, creating it...")
-        running_sheet = sheet.add_worksheet(title="Бег", rows=100, cols=15)
-        headers = ["Дата", "Время", "Расстояние", "Средний темп", "Средняя ЧСС",
-                   "Усталость в течении дня", "Во время тренировки", 
-                   "После тренировки", "TTR dist", "TTR time", "Вариабельность СР", "ActivityID"]
-        running_sheet.append_row(headers)
+def get_training_blocks(worksheet):
+    """Найти все блоки тренировок в таблице"""
+    col_a = worksheet.col_values(1)
     
-    activity_id = str(activity['activityId'])
+    blocks = []
+    for row_num, value in enumerate(col_a, 1):
+        value = value.strip()
+        # Ищем строки с названиями тренировок
+        if value and any(keyword in value.upper() for keyword in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ']):
+            # Читаем строку с датами
+            row_data = worksheet.row_values(row_num)
+            blocks.append({
+                'row': row_num,
+                'name': value,
+                'data': row_data
+            })
     
-    try:
-        existing_ids = running_sheet.col_values(12)[1:]
-        if activity_id in existing_ids:
-            date_str = activity.get('startTimeLocal', '').split()[0]
-            print(f"Skipping running activity from {date_str} (already exists)")
-            return
-    except:
-        pass
+    return blocks
+
+def process_cycling_data(garmin_client, activities):
+    """Обработка данных велосипеда"""
+    if not activities:
+        return {}
     
-    details = garmin_client.get_activity(int(activity_id))
-    date_str = activity.get('startTimeLocal', '').split()[0]
+    data = {
+        'avg_power': [],
+        'normalized_power': [],
+        'avg_speed': [],
+        'avg_cadence': [],
+        'avg_hr': []
+    }
     
-    duration = format_time(details.get('duration', 0))
-    distance = round(details.get('distance', 0) / 1000, 2) if details.get('distance') else ''
-    avg_speed = details.get('averageSpeed', 0)
+    for activity in activities:
+        activity_id = activity['activityId']
+        details = garmin_client.get_activity(activity_id)
+        summary = details.get('summaryDTO', {})
+        
+        avg_power = summary.get('averagePower', '')
+        normalized_power = summary.get('normalizedPower', '')
+        avg_speed = round(summary.get('averageSpeed', 0) * 3.6, 1) if summary.get('averageSpeed') else ''
+        avg_cadence = summary.get('averageBikeCadence', '')
+        avg_hr = summary.get('averageHR', '')
+        
+        if avg_power:
+            data['avg_power'].append(str(int(avg_power)))
+        if normalized_power:
+            data['normalized_power'].append(str(int(normalized_power)))
+        if avg_speed:
+            data['avg_speed'].append(str(avg_speed))
+        if avg_cadence:
+            data['avg_cadence'].append(str(int(avg_cadence)))
+        if avg_hr:
+            data['avg_hr'].append(str(int(avg_hr)))
+    
+    return data
+
+def process_running_data(garmin_client, activity):
+    """Обработка данных бега"""
+    if not activity:
+        return {}
+    
+    activity_id = activity['activityId']
+    details = garmin_client.get_activity(activity_id)
+    summary = details.get('summaryDTO', {})
+    
+    duration = format_time(summary.get('duration', 0))
+    distance = round(summary.get('distance', 0) / 1000, 2) if summary.get('distance') else ''
+    avg_speed = summary.get('averageSpeed', 0)
     avg_pace = format_pace(avg_speed) if avg_speed else ''
-    avg_hr = details.get('averageHR', '')
+    avg_hr = summary.get('averageHR', '')
     
-    row = [
-        date_str,
-        duration,
-        distance,
-        avg_pace,
-        avg_hr,
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        activity_id
-    ]
+    return {
+        'time': duration,
+        'distance': f"{distance} км" if distance else '',
+        'pace': f"{avg_pace} /км" if avg_pace else '',
+        'hr': f"{int(avg_hr)} уд./мин" if avg_hr else ''
+    }
+
+def sync_to_sheet(garmin_client, worksheet, column):
+    """Синхронизация данных в конкретный столбец"""
+    print(f"\n{'='*60}")
+    print(f"Синхронизация для столбца {column}")
+    print(f"{'='*60}")
     
-    running_sheet.append_row(row)
-    print(f"✓ Added running activity from {date_str}")
+    # Находим все блоки тренировок
+    blocks = get_training_blocks(worksheet)
+    
+    # Для каждого блока ищем дату в нужном столбце
+    for block in blocks:
+        row_num = block['row']
+        name = block['name']
+        row_data = block['data']
+        
+        # Определяем индекс колонки (E = 5, значит индекс 4)
+        col_index = ord(column.upper()) - ord('A')
+        
+        if col_index >= len(row_data):
+            continue
+        
+        date_str = row_data[col_index]
+        date_obj = parse_date(date_str)
+        
+        if not date_obj:
+            continue
+        
+        print(f"\n📅 {name} - {date_str}")
+        
+        # Получаем тренировки за эту дату
+        activities = get_activities_for_date(garmin_client, date_obj)
+        
+        if not activities:
+            print(f"  ℹ️  Нет тренировок в Garmin за {date_str}")
+            continue
+        
+        # Разделяем по типам
+        cycling_activities = [a for a in activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
+        running_activities = [a for a in activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+        
+        print(f"  🚴 Велосипед: {len(cycling_activities)} тренировок")
+        print(f"  🏃 Бег: {len(running_activities)} тренировок")
+        
+        # Определяем куда записывать данные
+        if 'БЕГ' in name.upper() or 'RUN' in name.upper():
+            # Это блок бега
+            if running_activities:
+                run_data = process_running_data(garmin_client, running_activities[0])
+                # Записываем данные
+                # Строка +1 = Время, +2 = Расстояние, +3 = Темп, +4 = ЧСС
+                if run_data.get('time'):
+                    worksheet.update_cell(row_num + 1, col_index + 1, run_data['time'])
+                if run_data.get('distance'):
+                    worksheet.update_cell(row_num + 2, col_index + 1, run_data['distance'])
+                if run_data.get('pace'):
+                    worksheet.update_cell(row_num + 3, col_index + 1, run_data['pace'])
+                if run_data.get('hr'):
+                    worksheet.update_cell(row_num + 4, col_index + 1, run_data['hr'])
+                print(f"  ✓ Записаны данные бега")
+        
+        elif 'ВЕЛ' in name.upper() or 'BIKE' in name.upper():
+            # Это блок велосипеда
+            if cycling_activities:
+                cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])  # Макс 2 тренировки
+                
+                # Определяем строки для записи
+                # Нужно найти где именно записывать (может быть разная структура)
+                # Пока записываем по аналогии: Средние ваты, NP, Скорость, Каденс, ЧСС
+                
+                # Ищем строки с текстом в столбце A
+                # Пропустим это и просто запишем данные через слеш если их 2
+                if len(cycle_data['avg_power']) >= 2:
+                    avg_power_str = f"{cycle_data['avg_power'][0]}/{cycle_data['avg_power'][1]}"
+                elif len(cycle_data['avg_power']) == 1:
+                    avg_power_str = cycle_data['avg_power'][0]
+                else:
+                    avg_power_str = ''
+                
+                # Аналогично для других метрик
+                print(f"  ✓ Средние ваты: {avg_power_str}")
+                
+                # TODO: нужно определить точные строки для записи
+                # Пока просто выведем информацию
+                print(f"  ℹ️  Данные готовы к записи (нужно уточнить строки)")
 
 def main():
     try:
         print("=== Garmin to Google Sheets Sync ===\n")
         
-        garmin_client = connect_to_garmin()
+        # Подключение к Garmin
+        garmin = connect_to_garmin()
+        
+        # Подключение к Google Sheets
         sheet = connect_to_google_sheets()
+        worksheet = sheet.worksheet("ВЕЛ БЕГ")
+        print(f"✓ Opened worksheet: {worksheet.title}")
         
-        days_to_sync = int(os.getenv('DAYS_TO_SYNC', 7))
+        # Определяем колонку для синхронизации (по умолчанию E = текущая неделя)
+        column = os.getenv('SYNC_COLUMN', 'E')
         
-        print(f"\nFetching cycling activities from last {days_to_sync} days...")
-        cycling_activities = get_cycling_activities(garmin_client, days_to_sync)
-        print(f"Found {len(cycling_activities)} cycling activities")
+        # Синхронизация
+        sync_to_sheet(garmin, worksheet, column)
         
-        for activity in cycling_activities:
-            add_cycling_data(sheet, activity, garmin_client)
-        
-        print(f"\nFetching running activities from last {days_to_sync} days...")
-        running_activities = get_running_activities(garmin_client, days_to_sync)
-        print(f"Found {len(running_activities)} running activities")
-        
-        for activity in running_activities:
-            add_running_data(sheet, activity, garmin_client)
-        
-        print("\n✓ Sync completed successfully!")
+        print(f"\n{'='*60}")
+        print("✅ Синхронизация завершена!")
+        print(f"{'='*60}\n")
         
     except Exception as e:
-        print(f"\n✗ Error: {str(e)}")
+        print(f"\n✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 if __name__ == "__main__":
