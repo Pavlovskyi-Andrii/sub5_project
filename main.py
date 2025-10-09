@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
+from pathlib import Path
 from datetime import datetime, timedelta
 from garminconnect import Garmin
 import gspread
@@ -10,18 +11,65 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def connect_to_garmin():
-    """Подключение к Garmin Connect"""
+    """Подключение к Garmin Connect через Garth"""
     email = os.getenv('GARMIN_EMAIL')
     password = os.getenv('GARMIN_PASSWORD')
+    session_data = os.getenv('SESSION_SECRET')
     
     if not email or not password:
         raise ValueError("Garmin credentials not found. Please set GARMIN_EMAIL and GARMIN_PASSWORD")
     
     print("Connecting to Garmin Connect...")
-    client = Garmin(email, password)
-    client.login()
-    print("Successfully connected to Garmin!")
-    return client
+    
+    try:
+        client = Garmin(email, password)
+        
+        if session_data:
+            try:
+                print("Attempting to use saved session...")
+                client.garth.loads(session_data)
+                test_date = datetime.today().strftime("%Y-%m-%d")
+                client.get_user_summary(test_date)
+                print("✓ Successfully connected using saved session!")
+                return client
+            except Exception as e:
+                print(f"Saved session invalid, logging in again... ({str(e)})")
+        
+        print("Logging in with credentials (this may take a moment)...")
+        client.login()
+        
+        try:
+            token_data = client.garth.dumps()
+            print(f"\n{'='*60}")
+            print(f"✓ Login successful!")
+            print(f"{'='*60}")
+            print(f"\nIMPORTANT: To avoid re-logging in every time, add this to your Secrets:")
+            print(f"SESSION_SECRET = {token_data[:80]}...")
+            print(f"(Full token data has been saved, copy from logs if needed)")
+            print(f"{'='*60}\n")
+        except Exception as e:
+            print(f"Warning: Could not save session data: {str(e)}")
+        
+        print("Successfully connected to Garmin!")
+        return client
+        
+    except Exception as e:
+        error_msg = str(e)
+        if "401" in error_msg or "Unauthorized" in error_msg:
+            raise ValueError(
+                "\n" + "="*60 + "\n"
+                "❌ Garmin authentication failed!\n"
+                "="*60 + "\n"
+                "Possible solutions:\n"
+                "1. Double-check GARMIN_EMAIL and GARMIN_PASSWORD are correct\n"
+                "2. Try logging into connect.garmin.com in your browser first\n"
+                "3. If you have 2FA/MFA enabled, you may need to disable it temporarily\n"
+                "4. Wait a few minutes and try again (rate limiting)\n"
+                "5. Check if your account is locked or requires verification\n"
+                f"\nError details: {error_msg}\n"
+                "="*60
+            )
+        raise
 
 def connect_to_google_sheets():
     """Подключение к Google Sheets"""
@@ -55,10 +103,16 @@ def get_cycling_activities(garmin_client, days=7):
     activities = garmin_client.get_activities(0, days * 5)
     cycling_activities = []
     
+    cutoff_date = (datetime.today() - timedelta(days=days)).date()
+    
     for activity in activities:
         activity_type = activity.get('activityType', {}).get('typeKey', '')
-        if 'cycling' in activity_type.lower():
-            cycling_activities.append(activity)
+        start_time_str = activity.get('startTimeLocal', '')
+        
+        if start_time_str:
+            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
+            if activity_date >= cutoff_date and 'cycling' in activity_type.lower():
+                cycling_activities.append(activity)
     
     return cycling_activities
 
@@ -67,10 +121,16 @@ def get_running_activities(garmin_client, days=7):
     activities = garmin_client.get_activities(0, days * 5)
     running_activities = []
     
+    cutoff_date = (datetime.today() - timedelta(days=days)).date()
+    
     for activity in activities:
         activity_type = activity.get('activityType', {}).get('typeKey', '')
-        if 'running' in activity_type.lower():
-            running_activities.append(activity)
+        start_time_str = activity.get('startTimeLocal', '')
+        
+        if start_time_str:
+            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
+            if activity_date >= cutoff_date and 'running' in activity_type.lower():
+                running_activities.append(activity)
     
     return running_activities
 
@@ -101,13 +161,23 @@ def add_cycling_data(sheet, activity, garmin_client):
         cycling_sheet = sheet.add_worksheet(title="Вел", rows=100, cols=15)
         headers = ["Дата", "Средние ваты", "Normalized Power", "Сред.скор", 
                    "Частота вращения", "Средняя ЧСС", "Субъективное ощущение",
-                   "Бег брик", "ЧСС бег", "TTV dist", "TTV time"]
+                   "Бег брик", "ЧСС бег", "TTV dist", "TTV time", "ActivityID"]
         cycling_sheet.append_row(headers)
     
-    activity_id = activity['activityId']
-    details = garmin_client.get_activity(activity_id)
+    activity_id = str(activity['activityId'])
     
+    try:
+        existing_ids = cycling_sheet.col_values(12)[1:]
+        if activity_id in existing_ids:
+            date_str = activity.get('startTimeLocal', '').split()[0]
+            print(f"Skipping cycling activity from {date_str} (already exists)")
+            return
+    except:
+        pass
+    
+    details = garmin_client.get_activity(int(activity_id))
     date_str = activity.get('startTimeLocal', '').split()[0]
+    
     avg_power = details.get('avgPower', '')
     normalized_power = details.get('normalizedPower', '')
     avg_speed = round(details.get('averageSpeed', 0) * 3.6, 2) if details.get('averageSpeed') else ''
@@ -125,11 +195,12 @@ def add_cycling_data(sheet, activity, garmin_client):
         '',
         '',
         '',
-        ''
+        '',
+        activity_id
     ]
     
     cycling_sheet.append_row(row)
-    print(f"Added cycling activity from {date_str}")
+    print(f"✓ Added cycling activity from {date_str}")
 
 def add_running_data(sheet, activity, garmin_client):
     """Добавление данных бега в таблицу"""
@@ -140,13 +211,23 @@ def add_running_data(sheet, activity, garmin_client):
         running_sheet = sheet.add_worksheet(title="Бег", rows=100, cols=15)
         headers = ["Дата", "Время", "Расстояние", "Средний темп", "Средняя ЧСС",
                    "Усталость в течении дня", "Во время тренировки", 
-                   "После тренировки", "TTR dist", "TTR time", "Вариабельность СР"]
+                   "После тренировки", "TTR dist", "TTR time", "Вариабельность СР", "ActivityID"]
         running_sheet.append_row(headers)
     
-    activity_id = activity['activityId']
-    details = garmin_client.get_activity(activity_id)
+    activity_id = str(activity['activityId'])
     
+    try:
+        existing_ids = running_sheet.col_values(12)[1:]
+        if activity_id in existing_ids:
+            date_str = activity.get('startTimeLocal', '').split()[0]
+            print(f"Skipping running activity from {date_str} (already exists)")
+            return
+    except:
+        pass
+    
+    details = garmin_client.get_activity(int(activity_id))
     date_str = activity.get('startTimeLocal', '').split()[0]
+    
     duration = format_time(details.get('duration', 0))
     distance = round(details.get('distance', 0) / 1000, 2) if details.get('distance') else ''
     avg_speed = details.get('averageSpeed', 0)
@@ -164,11 +245,12 @@ def add_running_data(sheet, activity, garmin_client):
         '',
         '',
         '',
-        ''
+        '',
+        activity_id
     ]
     
     running_sheet.append_row(row)
-    print(f"Added running activity from {date_str}")
+    print(f"✓ Added running activity from {date_str}")
 
 def main():
     try:
