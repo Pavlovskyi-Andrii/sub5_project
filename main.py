@@ -248,7 +248,7 @@ def process_running_data(garmin_client, activity):
     return {
         'time': duration,
         'distance': f"{distance} км" if distance else '',
-        'pace': f"{avg_pace} /км" if avg_pace else '',
+        'pace': avg_pace if avg_pace else '',
         'hr': f"{int(avg_hr)} уд./мин" if avg_hr else ''
     }
 
@@ -347,10 +347,11 @@ def sync_to_sheet(garmin_client, worksheet, column):
         # Сначала проверяем комбинированные блоки (вел+бег, например суббота)
         if ('ВЕЛ' in name.upper() or 'BIKE' in name.upper()) and ('БЕГ' in name.upper() or 'RUN' in name.upper()):
             # Это комбинированный блок (суббота: 2 вел + 1 бег)
-            # Сначала записываем велосипед
+            # Фиксированные строки 7-15
+            
+            # Сначала записываем велосипед (строки 7-11)
             if cycling_activities:
                 cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])
-                col_a = worksheet.col_values(1)
                 
                 def format_values(values_list):
                     if len(values_list) >= 2:
@@ -367,62 +368,51 @@ def sync_to_sheet(garmin_client, worksheet, column):
                 
                 print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
                 
-                # Ищем строки в пределах блока
-                block_end = len(col_a)
-                for next_idx in range(row_num, len(col_a)):
-                    next_text = col_a[next_idx].strip().upper()
-                    if next_text and next_idx > row_num and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'ЛОНГ', 'ИНТЕРВАЛ', 'КОРОТКИЕ']):
-                        block_end = next_idx
-                        break
+                # Строка 7: Средние ваты
+                if avg_power_str:
+                    batch.add_update(7, col_index + 1, avg_power_str)
+                    print(f"  ✓ Средние ваты: {avg_power_str} → {chr(64+col_index+1)}7")
                 
-                print(f"  🔍 Ищем вел данные с row {row_num} до {block_end}")
+                # Строка 8: Normalized Power
+                if np_str:
+                    batch.add_update(8, col_index + 1, np_str)
+                    print(f"  ✓ Normalized Power: {np_str} → {chr(64+col_index+1)}8")
                 
-                for search_idx in range(row_num - 1, min(block_end, len(col_a))):
-                    cell_text = col_a[search_idx].strip().lower()
-                    actual_row = search_idx + 1
-                    
-                    if 'средн' in cell_text and 'ват' in cell_text:
-                        if avg_power_str:
-                            batch.add_update(actual_row, col_index + 1, avg_power_str)
-                            print(f"  ✓ Средние ваты: {avg_power_str} → {chr(64+col_index+1)}{actual_row}")
-                    
-                    elif 'normalized' in cell_text or ('power' in cell_text and 'norm' in cell_text):
-                        if np_str:
-                            batch.add_update(actual_row, col_index + 1, np_str)
-                            print(f"  ✓ Normalized Power: {np_str} → {chr(64+col_index+1)}{actual_row}")
-                    
-                    elif 'сред' in cell_text and 'скор' in cell_text:
-                        if speed_str:
-                            batch.add_update(actual_row, col_index + 1, speed_str)
-                            print(f"  ✓ Средняя скорость: {speed_str} → {chr(64+col_index+1)}{actual_row}")
-                    
-                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чсс' in cell_text:
-                        if hr_str:
-                            batch.add_update(actual_row, col_index + 1, hr_str)
-                            print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}{actual_row}")
+                # Строка 9: Сред.скорость
+                if speed_str:
+                    batch.add_update(9, col_index + 1, speed_str)
+                    print(f"  ✓ Средняя скорость: {speed_str} → {chr(64+col_index+1)}9")
+                
+                # Строка 10: Частота вращения
+                if cadence_str:
+                    batch.add_update(10, col_index + 1, cadence_str)
+                    print(f"  ✓ Частота вращения: {cadence_str} → {chr(64+col_index+1)}10")
+                
+                # Строка 11: Средняя ЧСС
+                if hr_str:
+                    batch.add_update(11, col_index + 1, hr_str)
+                    print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}11")
             
-            # Потом записываем бег
+            # Потом записываем бег брик (строки 13-15)
             if running_activities:
                 run_data = process_running_data(garmin_client, running_activities[0])
-                # Ищем строки "Бег брик" и "ЧСС бег" для записи
-                if 'col_a' not in locals():
-                    col_a = worksheet.col_values(1)
-                for search_idx in range(row_num - 1, min(row_num + 20, len(col_a))):
-                    cell_text = col_a[search_idx].strip().lower()
-                    actual_row = search_idx + 1
-                    
-                    if 'бег' in cell_text and 'брик' in cell_text:
-                        # Записываем описание бега
-                        desc = f"{run_data.get('distance', '')} {run_data.get('pace', '')}"
-                        if desc.strip():
-                            batch.add_update(actual_row, col_index + 1, desc)
-                            print(f"  ✓ Бег брик: {desc} → {chr(64+col_index+1)}{actual_row}")
-                    
-                    elif 'чсс' in cell_text and 'бег' in cell_text:
-                        if run_data.get('hr'):
-                            hr_only = run_data['hr'].replace(' уд./мин', '')
-                            batch.add_update(actual_row, col_index + 1, hr_only)
-                            print(f"  ✓ ЧСС бег: {hr_only} → {chr(64+col_index+1)}{actual_row}")
+                
+                # Строка 13: Бег брик км
+                if run_data.get('distance'):
+                    distance_only = run_data['distance'].replace(' км', '')
+                    batch.add_update(13, col_index + 1, distance_only)
+                    print(f"  ✓ Бег брик км: {distance_only} → {chr(64+col_index+1)}13")
+                
+                # Строка 14: Бег брик темп
+                if run_data.get('pace'):
+                    batch.add_update(14, col_index + 1, run_data['pace'])
+                    print(f"  ✓ Бег брик темп: {run_data['pace']} → {chr(64+col_index+1)}14")
+                
+                # Строка 15: Бег брик ЧСС
+                if run_data.get('hr'):
+                    hr_only = run_data['hr'].replace(' уд./мин', '')
+                    batch.add_update(15, col_index + 1, hr_only)
+                    print(f"  ✓ Бег брик ЧСС: {hr_only} → {chr(64+col_index+1)}15")
         
         elif 'БЕГ' in name.upper() or 'RUN' in name.upper():
             # Это блок бега
@@ -433,11 +423,13 @@ def sync_to_sheet(garmin_client, worksheet, column):
                 if run_data.get('time'):
                     batch.add_update(row_num + 1, col_index + 1, run_data['time'])
                 if run_data.get('distance'):
-                    batch.add_update(row_num + 2, col_index + 1, run_data['distance'])
+                    distance_only = run_data['distance'].replace(' км', '')
+                    batch.add_update(row_num + 2, col_index + 1, distance_only)
                 if run_data.get('pace'):
                     batch.add_update(row_num + 3, col_index + 1, run_data['pace'])
                 if run_data.get('hr'):
-                    batch.add_update(row_num + 4, col_index + 1, run_data['hr'])
+                    hr_only = run_data['hr'].replace(' уд./мин', '')
+                    batch.add_update(row_num + 4, col_index + 1, hr_only)
                 print(f"  ✓ Записаны данные бега")
         
         elif 'ВЕЛ' in name.upper() or 'BIKE' in name.upper():
@@ -673,22 +665,24 @@ def main():
                         activities_by_week[column] = []
                     activities_by_week[column].append(activity)
         
-        # Синхронизируем ТОЛЬКО последнюю неделю
+        # Синхронизируем ВСЕ недели с тренировками
         if activities_by_week:
-            # Берем только самую последнюю неделю (с самой поздней датой)
-            latest_column = max(activities_by_week.keys(), key=lambda col: week_columns.get(col, datetime.min.date()))
-            week_activities = activities_by_week[latest_column]
-            week_date = week_columns.get(latest_column)
+            # Сортируем недели по дате
+            sorted_columns = sorted(activities_by_week.keys(), key=lambda col: week_columns.get(col, datetime.min.date()))
             
-            print(f"\n{'='*60}")
-            if week_date:
-                print(f"Синхронизация ПОСЛЕДНЕЙ недели {latest_column} (начало: {week_date.strftime('%d.%m.%Y')})")
-            else:
-                print(f"Синхронизация ПОСЛЕДНЕЙ недели {latest_column}")
-            print(f"Найдено тренировок: {len(week_activities)}")
-            print(f"{'='*60}")
-            
-            sync_to_sheet(garmin, worksheet, latest_column)
+            for column in sorted_columns:
+                week_activities = activities_by_week[column]
+                week_date = week_columns.get(column)
+                
+                print(f"\n{'='*60}")
+                if week_date:
+                    print(f"Синхронизация недели {column} (начало: {week_date.strftime('%d.%m.%Y')})")
+                else:
+                    print(f"Синхронизация недели {column}")
+                print(f"Найдено тренировок: {len(week_activities)}")
+                print(f"{'='*60}")
+                
+                sync_to_sheet(garmin, worksheet, column)
         else:
             print("\nℹ️  Нет тренировок для синхронизации")
         
