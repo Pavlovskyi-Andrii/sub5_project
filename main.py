@@ -298,9 +298,13 @@ def sync_to_sheet(garmin_client, worksheet, column):
         # Разделяем по типам
         cycling_activities = [a for a in activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
         running_activities = [a for a in activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+        strength_activities = [a for a in activities if 'strength' in a.get('activityType', {}).get('typeKey', '').lower()]
+        swimming_activities = [a for a in activities if 'swimming' in a.get('activityType', {}).get('typeKey', '').lower() or 'lap_swimming' in a.get('activityType', {}).get('typeKey', '').lower()]
         
         print(f"  🚴 Велосипед: {len(cycling_activities)} тренировок")
         print(f"  🏃 Бег: {len(running_activities)} тренировок")
+        print(f"  💪 Силовая: {len(strength_activities)} тренировок")
+        print(f"  🏊 Плавание: {len(swimming_activities)} тренировок")
         
         # Определяем куда записывать данные
         # Сначала проверяем комбинированные блоки (вел+бег, например суббота)
@@ -472,6 +476,110 @@ def sync_to_sheet(garmin_client, worksheet, column):
                         if hr_str:
                             worksheet.update_cell(actual_row, col_index + 1, hr_str)
                             print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}{actual_row}")
+        
+        elif ('СТАНОВ' in name.upper() or 'ПЛАВ' in name.upper()) and 'ПН' in name.upper():
+            # Это понедельник - становая + плавание (строки 32-34)
+            # Записываем длительность тренировок
+            if strength_activities or swimming_activities:
+                durations = []
+                
+                # Получаем длительность силовой
+                if strength_activities:
+                    activity_id = strength_activities[0]['activityId']
+                    details = garmin_client.get_activity(activity_id)
+                    summary = details.get('summaryDTO', {})
+                    duration_sec = summary.get('duration', 0)
+                    if duration_sec:
+                        hours = int(duration_sec // 3600)
+                        minutes = int((duration_sec % 3600) // 60)
+                        seconds = int(duration_sec % 60)
+                        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                        durations.append(duration_str)
+                
+                # Получаем длительность плавания
+                if swimming_activities:
+                    activity_id = swimming_activities[0]['activityId']
+                    details = garmin_client.get_activity(activity_id)
+                    summary = details.get('summaryDTO', {})
+                    duration_sec = summary.get('duration', 0)
+                    if duration_sec:
+                        hours = int(duration_sec // 3600)
+                        minutes = int((duration_sec % 3600) // 60)
+                        seconds = int(duration_sec % 60)
+                        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                        durations.append(duration_str)
+                
+                # Записываем длительности в строки 33 и 34
+                if len(durations) >= 1:
+                    worksheet.update_cell(33, col_index + 1, durations[0])
+                    print(f"  ✓ Длительность первой тренировки: {durations[0]} → {chr(64+col_index+1)}33")
+                
+                if len(durations) >= 2:
+                    worksheet.update_cell(34, col_index + 1, durations[1])
+                    print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}34")
+
+def get_week_start(date_obj):
+    """Получить субботу начала недели для данной даты"""
+    # Неделя начинается с субботы (weekday 5)
+    # Если сегодня суббота или позже - это текущая неделя
+    # Если до субботы - берем предыдущую субботу
+    days_since_saturday = (date_obj.weekday() + 2) % 7  # Суббота = 0
+    week_start = date_obj - timedelta(days=days_since_saturday)
+    return week_start
+
+def parse_week_dates_from_row1(worksheet):
+    """Парсит строку 1 и возвращает словарь {столбец: дата_начала_недели}"""
+    row1 = worksheet.row_values(1)
+    week_columns = {}
+    
+    for idx, cell in enumerate(row1):
+        if not cell.strip():
+            continue
+        
+        col_letter = chr(65 + idx)  # A, B, C, D, E, F...
+        
+        # Парсим дату
+        cell_text = cell.strip()
+        try:
+            # Формат: "04.10.25" или "13.09"
+            if '.' in cell_text:
+                parts = cell_text.split('.')
+                if len(parts) == 3:
+                    day, month, year = parts
+                    if len(year) == 2:
+                        year = '20' + year
+                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y")
+                elif len(parts) == 2:
+                    day, month = parts
+                    year = datetime.now().year
+                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y")
+                else:
+                    continue
+                
+                week_columns[col_letter] = date_obj.date()
+        except:
+            continue
+    
+    return week_columns
+
+def find_column_for_date(activity_date, week_columns):
+    """Находит столбец для записи данных на основе даты тренировки"""
+    # Определяем начало недели для тренировки
+    week_start = get_week_start(activity_date)
+    
+    # Ищем подходящий столбец
+    for col_letter, col_week_start in sorted(week_columns.items()):
+        if col_week_start == week_start:
+            return col_letter
+    
+    # Если точное совпадение не найдено, ищем ближайшую неделю
+    for col_letter, col_week_start in sorted(week_columns.items()):
+        # Проверяем попадает ли тренировка в эту неделю (суббота + 6 дней)
+        week_end = col_week_start + timedelta(days=6)
+        if col_week_start <= activity_date <= week_end:
+            return col_letter
+    
+    return None
 
 def main():
     try:
@@ -485,11 +593,35 @@ def main():
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
         print(f"✓ Opened worksheet: {worksheet.title}")
         
-        # Определяем колонку для синхронизации (по умолчанию E = текущая неделя)
-        column = os.getenv('SYNC_COLUMN', 'E')
+        # Парсим даты недель из строки 1
+        week_columns = parse_week_dates_from_row1(worksheet)
+        print(f"✓ Найдено {len(week_columns)} недель в таблице")
         
-        # Синхронизация
-        sync_to_sheet(garmin, worksheet, column)
+        # Получаем тренировки за последние N дней
+        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '14'))  # По умолчанию 2 недели
+        activities = garmin.get_activities(0, days_to_sync * 2)  # С запасом
+        
+        # Группируем тренировки по неделям
+        activities_by_week = {}
+        for activity in activities:
+            activity_date = datetime.strptime(activity['startTimeLocal'][:10], '%Y-%m-%d').date()
+            column = find_column_for_date(activity_date, week_columns)
+            
+            if column:
+                if column not in activities_by_week:
+                    activities_by_week[column] = []
+                activities_by_week[column].append(activity)
+        
+        # Синхронизируем каждую неделю
+        for column in sorted(activities_by_week.keys()):
+            week_activities = activities_by_week[column]
+            week_date = week_columns.get(column)
+            print(f"\n{'='*60}")
+            print(f"Синхронизация недели {column} (начало: {week_date.strftime('%d.%m.%Y')})")
+            print(f"Найдено тренировок: {len(week_activities)}")
+            print(f"{'='*60}")
+            
+            sync_to_sheet(garmin, worksheet, column)
         
         print(f"\n{'='*60}")
         print("✅ Синхронизация завершена!")
