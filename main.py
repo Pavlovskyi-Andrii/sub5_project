@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
+import re
 from datetime import datetime, timedelta
 from garminconnect import Garmin
 import gspread
@@ -176,11 +177,14 @@ def get_activities_for_date(garmin_client, target_date):
 
 def get_training_blocks(worksheet):
     """Найти все блоки тренировок в таблице"""
-    col_a = worksheet.col_values(1)
+    # Теперь столбец B (2) содержит названия блоков, столбец A - порядковые номера
+    col_b = worksheet.col_values(2)
     
     blocks = []
-    for row_num, value in enumerate(col_a, 1):
-        value = value.strip()
+    for row_num, value in enumerate(col_b, 1):
+        if not value:
+            continue
+        value = str(value).strip()
         # Ищем строки с названиями тренировок
         if value and any(keyword in value.upper() for keyword in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ']):
             # Читаем строку с датами
@@ -437,8 +441,8 @@ def sync_to_sheet(garmin_client, worksheet, column):
             if cycling_activities:
                 cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])  # Макс 2 тренировки
                 
-                # Ищем строки для записи в столбце A
-                col_a = worksheet.col_values(1)
+                # Ищем строки для записи в столбце B (столбец A теперь с номерами)
+                col_b = worksheet.col_values(2)
                 
                 # Формируем данные (через слеш если 2 тренировки)
                 def format_values(values_list):
@@ -456,14 +460,14 @@ def sync_to_sheet(garmin_client, worksheet, column):
                 
                 print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
                 
-                # Ищем строки по тексту в колонке A (только в пределах блока)
+                # Ищем строки по тексту в колонке B (только в пределах блока)
                 # row_num - это уже 1-based индекс из enumerate
-                # col_a - это список со строками, индексы с 0
+                # col_b - это список со строками, индексы с 0
                 
                 # Находим конец блока (следующий заголовок блока или конец таблицы)
-                block_end = len(col_a)
-                for next_idx in range(row_num, len(col_a)):
-                    next_text = col_a[next_idx].strip().upper()
+                block_end = len(col_b)
+                for next_idx in range(row_num, len(col_b)):
+                    next_text = str(col_b[next_idx]).strip().upper() if next_idx < len(col_b) else ''
                     if next_text and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ']):
                         # Это следующий блок
                         block_end = next_idx
@@ -471,8 +475,8 @@ def sync_to_sheet(garmin_client, worksheet, column):
                 
                 print(f"  🔍 Ищем с row {row_num} до {block_end}")
                 
-                for search_idx in range(row_num - 1, min(block_end, len(col_a))):
-                    cell_text = col_a[search_idx].strip().lower()
+                for search_idx in range(row_num - 1, min(block_end, len(col_b))):
+                    cell_text = str(col_b[search_idx]).strip().lower() if search_idx < len(col_b) else ''
                     actual_row = search_idx + 1  # Реальный номер строки в Google Sheets
                     
                     if 'средн' in cell_text and 'ват' in cell_text:
@@ -541,19 +545,20 @@ def sync_to_sheet(garmin_client, worksheet, column):
                         durations.append(duration_str)
                 
                 # Ищем строки для записи длительности (динамически в пределах блока)
-                col_a = worksheet.col_values(1)
+                # Столбец B теперь содержит названия (столбец A - порядковые номера)
+                col_b = worksheet.col_values(2)
                 
                 # Находим конец блока
-                block_end = len(col_a)
-                for next_idx in range(row_num, len(col_a)):
-                    next_text = col_a[next_idx].strip().upper()
+                block_end = len(col_b)
+                for next_idx in range(row_num, len(col_b)):
+                    next_text = str(col_b[next_idx]).strip().upper() if next_idx < len(col_b) else ''
                     if next_text and next_idx > row_num and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'ЛОНГ', 'ИНТЕРВАЛ', 'КОРОТКИЕ', 'ДЛИН']):
                         block_end = next_idx
                         break
                 
                 # Ищем строки "Длительность первой/второй тренировки"
-                for search_idx in range(row_num - 1, min(block_end, len(col_a))):
-                    cell_text = col_a[search_idx].strip().lower()
+                for search_idx in range(row_num - 1, min(block_end, len(col_b))):
+                    cell_text = str(col_b[search_idx]).strip().lower() if search_idx < len(col_b) else ''
                     actual_row = search_idx + 1
                     
                     if 'длительност' in cell_text and 'перв' in cell_text:
@@ -578,38 +583,57 @@ def get_week_start(date_obj):
     week_start = date_obj - timedelta(days=days_since_saturday)
     return week_start
 
-def parse_week_dates_from_row1(worksheet):
-    """Парсит строку 1 и возвращает словарь {столбец: дата_начала_недели}"""
-    row1 = worksheet.row_values(1)
-    week_columns = {}
+def parse_week_dates_from_block_rows(worksheet):
+    """Парсит даты из строк блоков и возвращает словарь {столбец: дата_начала_недели}"""
+    # Строки с датами блоков (по новой структуре с нумерацией в столбце A)
+    date_rows = [20, 33, 38, 73]  # Воскресенье, Понедельник, Вторник, Пятница
     
-    for idx, cell in enumerate(row1):
-        if not cell.strip():
+    # Читаем все строки одним batch запросом для оптимизации
+    ranges = [f"{row}:{row}" for row in date_rows]
+    try:
+        batch_data = worksheet.batch_get(ranges)
+    except Exception as e:
+        print(f"✗ Ошибка при чтении дат: {e}")
+        return {}
+    
+    # Словарь для хранения дат по столбцам: {столбец: [список_дат]}
+    column_dates = {}
+    
+    # Парсим даты из каждой строки
+    for row_data in batch_data:
+        if not row_data:
             continue
         
-        col_letter = chr(65 + idx)  # A, B, C, D, E, F...
+        row_values = row_data[0] if row_data else []
         
-        # Парсим дату
-        cell_text = cell.strip()
-        try:
-            # Формат: "04.10.25" или "13.09"
-            if '.' in cell_text:
-                parts = cell_text.split('.')
-                if len(parts) == 3:
-                    day, month, year = parts
-                    if len(year) == 2:
-                        year = '20' + year
-                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y")
-                elif len(parts) == 2:
-                    day, month = parts
-                    year = datetime.now().year
-                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y")
-                else:
+        for idx, cell in enumerate(row_values):
+            if not cell or not isinstance(cell, str):
+                continue
+            
+            col_letter = chr(65 + idx)  # A, B, C, D, E, F...
+            
+            # Ищем дату в формате dd.mm.yy
+            date_match = re.search(r'\b(\d{2})\.(\d{2})\.(\d{2})\b', cell)
+            if date_match:
+                try:
+                    day, month, year = date_match.groups()
+                    year = '20' + year
+                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y").date()
+                    
+                    if col_letter not in column_dates:
+                        column_dates[col_letter] = []
+                    column_dates[col_letter].append(date_obj)
+                except:
                     continue
-                
-                week_columns[col_letter] = date_obj.date()
-        except:
-            continue
+    
+    # Определяем начало недели (суббота) для каждого столбца
+    week_columns = {}
+    for col_letter, dates in column_dates.items():
+        if dates:
+            # Берем первую дату из столбца и определяем субботу начала недели
+            first_date = min(dates)
+            week_start = get_week_start(first_date)
+            week_columns[col_letter] = week_start
     
     return week_columns
 
@@ -644,8 +668,8 @@ def main():
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
         print(f"✓ Opened worksheet: {worksheet.title}")
         
-        # Парсим даты недель из строки 1
-        week_columns = parse_week_dates_from_row1(worksheet)
+        # Парсим даты недель из строк блоков (20, 33, 38, 73)
+        week_columns = parse_week_dates_from_block_rows(worksheet)
         print(f"✓ Найдено {len(week_columns)} недель в таблице")
         
         # Получаем тренировки за последние N дней
