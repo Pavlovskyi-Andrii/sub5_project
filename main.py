@@ -479,7 +479,38 @@ def sync_to_sheet(garmin_client, worksheet, column):
                     cell_text = str(col_b[search_idx]).strip().lower() if search_idx < len(col_b) else ''
                     actual_row = search_idx + 1  # Реальный номер строки в Google Sheets
                     
-                    if 'средн' in cell_text and 'ват' in cell_text:
+                    # Для вторника/четверга: Время, Расстояние, Средний темп (=скорость для вела), Средняя ЧП
+                    # Агрегируем данные через слеш если несколько тренировок (как для мощности)
+                    if 'врем' in cell_text and 'длительност' not in cell_text:
+                        # Время тренировки (агрегация)
+                        if cycling_activities:
+                            times = [format_time(act.get('duration', 0)) for act in cycling_activities[:2]]
+                            times = [t for t in times if t]
+                            if times:
+                                time_str = '/'.join(times) if len(times) > 1 else times[0]
+                                batch.add_update(actual_row, col_index + 1, time_str)
+                                print(f"  ✓ Время: {time_str} → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'расстоян' in cell_text:
+                        # Расстояние (агрегация)
+                        if cycling_activities:
+                            distances = []
+                            for act in cycling_activities[:2]:
+                                dist = act.get('distance', 0)
+                                if dist:
+                                    distances.append(str(round(dist / 1000, 2)))
+                            if distances:
+                                dist_str = '/'.join(distances) if len(distances) > 1 else distances[0]
+                                batch.add_update(actual_row, col_index + 1, dist_str)
+                                print(f"  ✓ Расстояние: {dist_str} км → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'средн' in cell_text and 'темп' in cell_text:
+                        # Средний темп для вело = скорость (уже агрегировано)
+                        if speed_str:
+                            batch.add_update(actual_row, col_index + 1, speed_str)
+                            print(f"  ✓ Средний темп (скорость): {speed_str} км/ч → {chr(64+col_index+1)}{actual_row}")
+                    
+                    elif 'средн' in cell_text and 'ват' in cell_text:
                         if avg_power_str:
                             batch.add_update(actual_row, col_index + 1, avg_power_str)
                             print(f"  ✓ Средние ваты: {avg_power_str} → {chr(64+col_index+1)}{actual_row}")
@@ -656,6 +687,98 @@ def find_column_for_date(activity_date, week_columns):
     
     return None
 
+def export_all_data_to_source(garmin, sheet):
+    """Выгружает все доступные данные тренировок на лист 'исходник' для диагностики"""
+    try:
+        # Открываем лист исходник (или создаем если нет)
+        try:
+            worksheet = sheet.worksheet("исходник")
+        except:
+            worksheet = sheet.add_worksheet("исходник", rows=100, cols=20)
+        
+        print("\n" + "="*60)
+        print("Выгрузка всех данных на лист 'исходник'")
+        print("="*60)
+        
+        # Получаем тренировки за последнюю неделю
+        days = int(os.getenv('DAYS_TO_SYNC', '7'))
+        activities = garmin.get_activities(0, days * 2)
+        
+        # Очищаем лист
+        worksheet.clear()
+        
+        # Собираем все данные для batch update
+        batch = BatchUpdater(worksheet)
+        row = 1
+        
+        for activity in activities:
+            activity_type = activity.get('activityType', {}).get('typeKey', 'unknown')
+            activity_name = activity.get('activityName', 'Без названия')
+            start_time = activity.get('startTimeLocal', '')
+            
+            # Записываем заголовок тренировки
+            batch.add_update(row, 1, f"=== {activity_name} ===")
+            batch.add_update(row, 2, start_time[:10] if start_time else '')
+            batch.add_update(row, 3, activity_type)
+            print(f"\n{activity_name} ({start_time[:10]}) - {activity_type}")
+            row += 1
+            
+            # Получаем детали тренировки
+            try:
+                activity_id = activity.get('activityId')
+                details = garmin.get_activity(activity_id)
+                summary = details.get('summaryDTO', {})
+                
+                # Основные метрики
+                data_to_export = {
+                    'Длительность': format_time(activity.get('duration', 0)),
+                    'Расстояние (км)': round(activity.get('distance', 0) / 1000, 2) if activity.get('distance') else None,
+                    'Средняя скорость (км/ч)': round(activity.get('averageSpeed', 0) * 3.6, 1) if activity.get('averageSpeed') else None,
+                    'Средняя ЧСС': summary.get('averageHR'),
+                    'Калории': activity.get('calories'),
+                }
+                
+                # Данные велосипеда
+                if 'cycling' in activity_type.lower():
+                    data_to_export.update({
+                        'Средняя мощность (Вт)': summary.get('avgPower'),
+                        'Normalized Power': summary.get('normPower') or summary.get('normalizedPower'),
+                        'Средняя каденс': summary.get('avgBikeCadence') or summary.get('averageBikingCadenceInRevPerMinute'),
+                    })
+                
+                # Данные бега
+                if 'running' in activity_type.lower():
+                    data_to_export.update({
+                        'Средний темп (мин/км)': format_pace(activity.get('averageSpeed')),
+                        'Средняя каденс (шаги/мин)': summary.get('averageRunningCadenceInStepsPerMinute'),
+                    })
+                
+                # Записываем все доступные данные
+                for key, value in data_to_export.items():
+                    if value is not None and value != '':
+                        batch.add_update(row, 1, key)
+                        batch.add_update(row, 2, str(value))
+                        print(f"  {key}: {value}")
+                        row += 1
+                
+            except Exception as e:
+                batch.add_update(row, 1, f"Ошибка: {str(e)}")
+                row += 1
+            
+            # Пустая строка между тренировками
+            row += 1
+        
+        # Отправляем все обновления одним запросом
+        batch.flush()
+        
+        print(f"\n✓ Выгружено {len(activities)} тренировок на лист 'исходник'")
+        print("="*60)
+        
+    except Exception as e:
+        print(f"✗ Ошибка при выгрузке: {e}")
+        import traceback
+        traceback.print_exc()
+
 def main():
     try:
         print("=== Garmin to Google Sheets Sync ===\n")
@@ -665,8 +788,12 @@ def main():
         
         # Подключение к Google Sheets
         sheet = connect_to_google_sheets()
+        
+        # ДИАГНОСТИКА: выгружаем все данные на лист "исходник"
+        export_all_data_to_source(garmin, sheet)
+        
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
-        print(f"✓ Opened worksheet: {worksheet.title}")
+        print(f"\n✓ Opened worksheet: {worksheet.title}")
         
         # Парсим даты недель из строк блоков (20, 33, 38, 73)
         week_columns = parse_week_dates_from_block_rows(worksheet)
