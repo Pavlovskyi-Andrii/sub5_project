@@ -789,8 +789,8 @@ def main():
         # Подключение к Google Sheets
         sheet = connect_to_google_sheets()
         
-        # ДИАГНОСТИКА: выгружаем все данные на лист "исходник"
-        export_all_data_to_source(garmin, sheet)
+        # ДИАГНОСТИКА: выгружаем все данные на лист "исходник" (раскомментируйте при необходимости)
+        # export_all_data_to_source(garmin, sheet)
         
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
         print(f"\n✓ Opened worksheet: {worksheet.title}")
