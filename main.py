@@ -790,7 +790,7 @@ def main():
         sheet = connect_to_google_sheets()
         
         # ДИАГНОСТИКА: выгружаем все данные на лист "исходник" (раскомментируйте при необходимости)
-        # export_all_data_to_source(garmin, sheet)
+        export_all_data_to_source(garmin, sheet)
         
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
         print(f"\n✓ Opened worksheet: {worksheet.title}")
@@ -800,8 +800,8 @@ def main():
         print(f"✓ Найдено {len(week_columns)} недель в таблице")
         
         # Получаем тренировки за последние N дней
-        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '7'))  # По умолчанию 1 неделя
-        activities = garmin.get_activities(0, days_to_sync * 2)  # С запасом
+        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '30'))  # По умолчанию 30 дней для захвата всех дат
+        activities = garmin.get_activities(0, days_to_sync * 3)  # С большим запасом
         
         # Группируем тренировки по неделям
         activities_by_week = {}
