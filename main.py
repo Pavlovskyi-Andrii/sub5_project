@@ -190,7 +190,7 @@ def get_training_blocks(worksheet):
             continue
         value = str(value).strip()
         # Ищем строки с названиями тренировок
-        if value and any(keyword in value.upper() for keyword in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ']):
+        if value and any(keyword in value.upper() for keyword in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'FTP', 'ДЛИН']):
             # Читаем строку с датами
             row_data = worksheet.row_values(row_num)
             blocks.append({
@@ -294,7 +294,7 @@ class BatchUpdater:
         
         self.updates = []
 
-def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None):
+def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, training_blocks=None):
     """Синхронизация данных в конкретный столбец
     
     Args:
@@ -302,6 +302,7 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None):
         worksheet: Лист Google Sheets
         column: Столбец для синхронизации (A, B, C и т.д.)
         week_start_date: Дата начала недели (суббота), для блоков без даты
+        training_blocks: Список блоков тренировок (для оптимизации API)
     """
     print(f"\n{'='*60}")
     print(f"Синхронизация для столбца {column}")
@@ -395,8 +396,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None):
         else:
             print(f"  ℹ️  Нет тренировок за субботу {week_start_date.strftime('%d.%m.%y')}")
     
-    # Находим все блоки тренировок
-    blocks = get_training_blocks(worksheet)
+    # Используем переданные блоки тренировок или получаем их (для совместимости)
+    blocks = training_blocks if training_blocks is not None else get_training_blocks(worksheet)
     
     # Для каждого блока ищем дату в нужном столбце
     for block in blocks:
@@ -539,7 +540,7 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None):
                     batch.add_update(row_num + 4, col_index + 1, hr_only)
                 print(f"  ✓ Записаны данные бега")
         
-        elif 'ВЕЛ' in name.upper() or 'BIKE' in name.upper():
+        elif 'ВЕЛ' in name.upper() or 'BIKE' in name.upper() or 'FTP' in name.upper() or ('ЧТ' in name.upper() and 'ДЛИН' in name.upper()):
             # Это блок велосипеда
             if cycling_activities:
                 cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])  # Макс 2 тренировки
@@ -720,7 +721,7 @@ def get_week_start(date_obj):
 def parse_week_dates_from_block_rows(worksheet):
     """Парсит даты из строк блоков и возвращает словарь {столбец: дата_начала_недели}"""
     # Строки с датами блоков (по новой структуре с нумерацией в столбце A)
-    date_rows = [20, 33, 38, 73]  # Воскресенье, Понедельник, Вторник, Пятница
+    date_rows = [20, 33, 38, 60, 73]  # Воскресенье, Понедельник, Вторник, Четверг, Пятница
     
     # Читаем все строки одним batch запросом для оптимизации
     ranges = [f"{row}:{row}" for row in date_rows]
@@ -908,7 +909,7 @@ def main():
             print(f"  Столбец {col}: {date.strftime('%d.%m.%Y')}")
         
         # Получаем тренировки за последние N дней
-        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '7'))  # По умолчанию 7 дней
+        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '30'))  # По умолчанию 30 дней
         activities = garmin.get_activities(0, days_to_sync * 2)  # С запасом
         
         # Группируем тренировки по неделям
@@ -932,6 +933,9 @@ def main():
         
         # Синхронизируем ВСЕ недели с тренировками
         if activities_by_week:
+            # Получаем блоки тренировок ОДИН РАЗ для оптимизации API
+            training_blocks = get_training_blocks(worksheet)
+            
             # Сортируем недели по дате
             sorted_columns = sorted(activities_by_week.keys(), key=lambda col: week_columns.get(col, datetime.min.date()))
             
@@ -947,8 +951,8 @@ def main():
                 print(f"Найдено тренировок: {len(week_activities)}")
                 print(f"{'='*60}")
                 
-                # Передаем дату начала недели для блоков без даты (например, суббота)
-                sync_to_sheet(garmin, worksheet, column, week_start_date=week_date)
+                # Передаем дату начала недели и блоки для оптимизации API
+                sync_to_sheet(garmin, worksheet, column, week_start_date=week_date, training_blocks=training_blocks)
         else:
             print("\nℹ️  Нет тренировок для синхронизации")
         
