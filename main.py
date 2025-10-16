@@ -165,12 +165,16 @@ def get_activities_for_date(garmin_client, target_date):
     # Получаем тренировки за этот день
     activities = garmin_client.get_activities(0, 50)  # Берем последние 50 тренировок
     
+    # Если target_date - datetime, преобразуем в date
+    if hasattr(target_date, 'date'):
+        target_date = target_date.date()
+    
     result = []
     for activity in activities:
         start_time_str = activity.get('startTimeLocal', '')
         if start_time_str:
             activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if activity_date == target_date.date():
+            if activity_date == target_date:
                 result.append(activity)
     
     return result
@@ -290,14 +294,106 @@ class BatchUpdater:
         
         self.updates = []
 
-def sync_to_sheet(garmin_client, worksheet, column):
-    """Синхронизация данных в конкретный столбец"""
+def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None):
+    """Синхронизация данных в конкретный столбец
+    
+    Args:
+        garmin_client: Клиент Garmin
+        worksheet: Лист Google Sheets
+        column: Столбец для синхронизации (A, B, C и т.д.)
+        week_start_date: Дата начала недели (суббота), для блоков без даты
+    """
     print(f"\n{'='*60}")
     print(f"Синхронизация для столбца {column}")
     print(f"{'='*60}")
     
     # Создаем batch updater
     batch = BatchUpdater(worksheet)
+    
+    # Определяем индекс колонки (E = 5, значит индекс 4)
+    col_index = ord(column.upper()) - ord('A')
+    
+    # ФИКСИРОВАННАЯ ОБРАБОТКА СУББОТЫ (строки 7-15)
+    # Суббота ВСЕГДА обрабатывается если есть week_start_date
+    if week_start_date:
+        print(f"\n📅 Суббота (Вел длинная + бег брик) - {week_start_date.strftime('%d.%m.%y')}")
+        
+        # Получаем тренировки за субботу
+        saturday_activities = get_activities_for_date(garmin_client, week_start_date)
+        
+        if saturday_activities:
+            # Разделяем по типам
+            cycling_activities = [a for a in saturday_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
+            running_activities = [a for a in saturday_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+            
+            print(f"  🚴 Велосипед: {len(cycling_activities)} тренировок")
+            print(f"  🏃 Бег: {len(running_activities)} тренировок")
+            
+            # Обрабатываем велосипед (строки 7-11)
+            if cycling_activities:
+                cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])
+                
+                def format_values(values_list):
+                    if len(values_list) >= 2:
+                        return f"{values_list[0]}/{values_list[1]}"
+                    elif len(values_list) == 1:
+                        return values_list[0]
+                    return ''
+                
+                # Безопасное извлечение данных с проверкой длины списков
+                def safe_get(data_list, index):
+                    return data_list[index] if index < len(data_list) else None
+                
+                avg_power_list = cycle_data.get('avg_power', [])
+                np_power_list = cycle_data.get('normalized_power', [])
+                speed_list = cycle_data.get('avg_speed', [])
+                cadence_list = cycle_data.get('avg_cadence', [])
+                hr_list = cycle_data.get('avg_hr', [])
+                
+                avg_power = format_values([safe_get(avg_power_list, i) for i in range(min(2, len(cycling_activities)))])
+                np_power = format_values([safe_get(np_power_list, i) for i in range(min(2, len(cycling_activities)))])
+                speed = format_values([safe_get(speed_list, i) for i in range(min(2, len(cycling_activities)))])
+                cadence = format_values([safe_get(cadence_list, i) for i in range(min(2, len(cycling_activities)))])
+                hr = format_values([safe_get(hr_list, i) for i in range(min(2, len(cycling_activities)))])
+                
+                if avg_power:
+                    batch.add_update(7, col_index + 1, avg_power)
+                    print(f"  ✓ Средние ваты: {avg_power} → {column}7")
+                if np_power:
+                    batch.add_update(8, col_index + 1, np_power)
+                    print(f"  ✓ Normalized Power: {np_power} → {column}8")
+                if speed:
+                    batch.add_update(9, col_index + 1, speed)
+                    print(f"  ✓ Средняя скорость: {speed} → {column}9")
+                if cadence:
+                    batch.add_update(10, col_index + 1, cadence)
+                    print(f"  ✓ Частота вращения: {cadence} → {column}10")
+                if hr:
+                    batch.add_update(11, col_index + 1, hr)
+                    print(f"  ✓ Средняя ЧСС: {hr} → {column}11")
+            
+            # Обрабатываем бег брик (строки 13-15)
+            if running_activities:
+                run = running_activities[0]
+                distance = run.get('distance', 0)
+                if distance:
+                    distance_km = round(distance / 1000, 2)
+                    batch.add_update(13, col_index + 1, str(distance_km))
+                    print(f"  ✓ Бег брик км: {distance_km} → {column}13")
+                
+                avg_speed = run.get('averageSpeed')
+                if avg_speed:
+                    pace_str = format_pace(avg_speed)
+                    if pace_str:
+                        batch.add_update(14, col_index + 1, pace_str)
+                        print(f"  ✓ Бег брик темп: {pace_str} → {column}14")
+                
+                avg_hr = run.get('averageHR')
+                if avg_hr:
+                    batch.add_update(15, col_index + 1, str(int(avg_hr)))
+                    print(f"  ✓ Бег брик ЧСС: {int(avg_hr)} → {column}15")
+        else:
+            print(f"  ℹ️  Нет тренировок за субботу {week_start_date.strftime('%d.%m.%y')}")
     
     # Находим все блоки тренировок
     blocks = get_training_blocks(worksheet)
@@ -308,17 +404,24 @@ def sync_to_sheet(garmin_client, worksheet, column):
         name = block['name']
         row_data = block['data']
         
-        # Определяем индекс колонки (E = 5, значит индекс 4)
-        col_index = ord(column.upper()) - ord('A')
+        # Пропускаем блок субботы (строки 6-15) - он уже обработан фиксированной логикой
+        if 6 <= row_num <= 15:
+            continue
         
+        # Определяем индекс колонки
         if col_index >= len(row_data):
             continue
         
         date_str = row_data[col_index]
         date_obj = parse_date(date_str)
         
-        # Если в строке блока нет даты, проверяем строку 1 (заголовки недель)
-        if not date_obj:
+        # СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ СУББОТЫ: используем дату начала недели
+        if not date_obj and 'сб' in name.lower() and week_start_date:
+            date_obj = week_start_date
+            print(f"📅 {name} - {date_obj.strftime('%d.%m.%y')} (начало недели)")
+        
+        # Если в строке блока нет даты, проверяем строку 1 (заголовки недель) - устаревшая логика
+        elif not date_obj:
             row1 = worksheet.row_values(1)
             if col_index < len(row1):
                 date_str = row1[col_index]
@@ -790,7 +893,7 @@ def main():
         sheet = connect_to_google_sheets()
         
         # ДИАГНОСТИКА: выгружаем все данные на лист "исходник" (раскомментируйте при необходимости)
-        export_all_data_to_source(garmin, sheet)
+        # export_all_data_to_source(garmin, sheet)
         
         worksheet = sheet.worksheet("ВЕЛ БЕГ")
         print(f"\n✓ Opened worksheet: {worksheet.title}")
@@ -799,22 +902,33 @@ def main():
         week_columns = parse_week_dates_from_block_rows(worksheet)
         print(f"✓ Найдено {len(week_columns)} недель в таблице")
         
+        # Диагностика: показываем все найденные недели
+        print("\n📅 Найденные недели:")
+        for col, date in sorted(week_columns.items()):
+            print(f"  Столбец {col}: {date.strftime('%d.%m.%Y')}")
+        
         # Получаем тренировки за последние N дней
-        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '30'))  # По умолчанию 30 дней для захвата всех дат
-        activities = garmin.get_activities(0, days_to_sync * 3)  # С большим запасом
+        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '7'))  # По умолчанию 7 дней
+        activities = garmin.get_activities(0, days_to_sync * 2)  # С запасом
         
         # Группируем тренировки по неделям
+        print("\n📊 Тренировки из Garmin:")
         activities_by_week = {}
         for activity in activities:
             start_time = activity.get('startTimeLocal', '')
             if start_time:
                 activity_date = datetime.strptime(start_time[:10], '%Y-%m-%d').date()
+                activity_name = activity.get('activityName', 'Без названия')
+                print(f"  {activity_date.strftime('%d.%m.%Y')} - {activity_name}")
+                
                 column = find_column_for_date(activity_date, week_columns)
                 
                 if column:
                     if column not in activities_by_week:
                         activities_by_week[column] = []
                     activities_by_week[column].append(activity)
+                else:
+                    print(f"    ⚠️ Не найден столбец для даты {activity_date.strftime('%d.%m.%Y')}")
         
         # Синхронизируем ВСЕ недели с тренировками
         if activities_by_week:
@@ -833,7 +947,8 @@ def main():
                 print(f"Найдено тренировок: {len(week_activities)}")
                 print(f"{'='*60}")
                 
-                sync_to_sheet(garmin, worksheet, column)
+                # Передаем дату начала недели для блоков без даты (например, суббота)
+                sync_to_sheet(garmin, worksheet, column, week_start_date=week_date)
         else:
             print("\nℹ️  Нет тренировок для синхронизации")
         
