@@ -8,6 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 def connect_to_garmin():
@@ -1029,7 +1030,7 @@ def main():
             print(f"  Столбец {col}: {date.strftime('%d.%m.%Y')}")
         
         # Получаем тренировки за последние N дней
-        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '30'))  # По умолчанию 30 дней
+        days_to_sync = int(os.getenv('DAYS_TO_SYNC', '14'))  # По умолчанию 30 дней
         activities = garmin.get_activities(0, days_to_sync * 2)  # С запасом
         
         # Группируем тренировки по неделям
