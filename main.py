@@ -295,24 +295,37 @@ class BatchUpdater:
         
         self.updates = []
 
-def calculate_weekly_totals(garmin_client, week_activities, week_start_date, batch, col_index):
+def calculate_weekly_totals(garmin_client, week_activities, sunday_date, batch, col_index):
     """Подсчет недельных итогов для велосипеда и бега
     
     Args:
         garmin_client: Клиент Garmin
         week_activities: Список всех активностей недели
-        week_start_date: Дата начала недели (суббота)
+        sunday_date: Дата воскресенья (конец недели из строки 20)
         batch: BatchUpdater для записи данных
         col_index: Индекс столбца
     """
-    if not week_start_date or not week_activities:
+    if not sunday_date or not week_activities:
         return
     
-    print(f"\n📊 Подсчет недельных итогов (пн-вс)...")
+    # Неделя: понедельник - воскресенье (пн-вс)
+    # Если воскресенье = 19.10, то понедельник = 19.10 - 6 дней = 13.10
+    monday_date = sunday_date - timedelta(days=6)
     
-    # Разделяем активности по типам
-    cycling_activities = [a for a in week_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
-    running_activities = [a for a in week_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+    print(f"\n📊 Подсчет недельных итогов (пн-вс: {monday_date.strftime('%d.%m')} - {sunday_date.strftime('%d.%m')})...")
+    
+    # Фильтруем активности недели (пн-вс)
+    week_filtered_activities = []
+    for activity in week_activities:
+        start_time_str = activity.get('startTimeLocal', '')
+        if start_time_str:
+            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
+            if monday_date <= activity_date <= sunday_date:
+                week_filtered_activities.append(activity)
+    
+    # Разделяем по типам
+    cycling_activities = [a for a in week_filtered_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
+    running_activities = [a for a in week_filtered_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
     
     # ВЕЛОСИПЕД
     total_cycling_distance = 0  # в км
@@ -332,8 +345,7 @@ def calculate_weekly_totals(garmin_client, week_activities, week_start_date, bat
     total_running_time = 0  # в секундах
     sunday_long_run_hrv = None
     
-    # Находим воскресенье для HRV (воскресенье = суббота + 1 день)
-    sunday_date = week_start_date + timedelta(days=1)
+    # Ищем воскресные беговые тренировки для HRV
     sunday_runs = []
     for activity in running_activities:
         start_time_str = activity.get('startTimeLocal', '')
@@ -824,7 +836,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                             print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}{actual_row}")
     
     # Подсчитываем недельные итоги (строки 18, 19, 29, 30, 31)
-    if week_activities:
+    # Параметр week_start_date на самом деле содержит sunday_date (из строки 20)
+    if week_activities and week_start_date:
         calculate_weekly_totals(garmin_client, week_activities, week_start_date, batch, col_index)
     
     # Отправляем все накопленные обновления одним batch запросом
@@ -840,74 +853,54 @@ def get_week_start(date_obj):
     return week_start
 
 def parse_week_dates_from_block_rows(worksheet):
-    """Парсит даты из строк блоков и возвращает словарь {столбец: дата_начала_недели}"""
-    # Строки с датами блоков (по новой структуре с нумерацией в столбце A)
-    date_rows = [20, 33, 38, 60, 73]  # Воскресенье, Понедельник, Вторник, Четверг, Пятница
-    
-    # Читаем все строки одним batch запросом для оптимизации
-    ranges = [f"{row}:{row}" for row in date_rows]
+    """Парсит даты из строки 20 (воскресенья) и возвращает словарь {столбец: дата_воскресенья}"""
+    # Строка 20: "Лонг RUN (вс)" - содержит даты воскресений (конец недели)
     try:
-        batch_data = worksheet.batch_get(ranges)
+        row_20 = worksheet.row_values(20)
     except Exception as e:
-        print(f"✗ Ошибка при чтении дат: {e}")
+        print(f"✗ Ошибка при чтении строки 20: {e}")
         return {}
     
-    # Словарь для хранения дат по столбцам: {столбец: [список_дат]}
-    column_dates = {}
+    # Словарь для хранения воскресений по столбцам: {столбец: дата_воскресенья}
+    sunday_columns = {}
     
-    # Парсим даты из каждой строки
-    for row_data in batch_data:
-        if not row_data:
+    # Парсим даты воскресений
+    for idx, cell in enumerate(row_20):
+        if idx < 2:  # Пропускаем столбцы A и B
             continue
         
-        row_values = row_data[0] if row_data else []
+        if not cell or not isinstance(cell, str):
+            continue
         
-        for idx, cell in enumerate(row_values):
-            if not cell or not isinstance(cell, str):
+        col_letter = chr(65 + idx)  # A, B, C, D, E, F...
+        
+        # Ищем дату в формате dd.mm.yy
+        date_match = re.search(r'\b(\d{2})\.(\d{2})\.(\d{2})\b', cell)
+        if date_match:
+            try:
+                day, month, year = date_match.groups()
+                year = '20' + year
+                sunday_date = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y").date()
+                sunday_columns[col_letter] = sunday_date
+            except:
                 continue
-            
-            col_letter = chr(65 + idx)  # A, B, C, D, E, F...
-            
-            # Ищем дату в формате dd.mm.yy
-            date_match = re.search(r'\b(\d{2})\.(\d{2})\.(\d{2})\b', cell)
-            if date_match:
-                try:
-                    day, month, year = date_match.groups()
-                    year = '20' + year
-                    date_obj = datetime.strptime(f"{day}.{month}.{year}", "%d.%m.%Y").date()
-                    
-                    if col_letter not in column_dates:
-                        column_dates[col_letter] = []
-                    column_dates[col_letter].append(date_obj)
-                except:
-                    continue
     
-    # Определяем начало недели (суббота) для каждого столбца
-    week_columns = {}
-    for col_letter, dates in column_dates.items():
-        if dates:
-            # Берем первую дату из столбца и определяем субботу начала недели
-            first_date = min(dates)
-            week_start = get_week_start(first_date)
-            week_columns[col_letter] = week_start
-    
-    return week_columns
+    return sunday_columns
 
-def find_column_for_date(activity_date, week_columns):
-    """Находит столбец для записи данных на основе даты тренировки"""
-    # Определяем начало недели для тренировки
-    week_start = get_week_start(activity_date)
+def find_column_for_date(activity_date, sunday_columns):
+    """Находит столбец для записи данных на основе даты тренировки
     
-    # Ищем подходящий столбец
-    for col_letter, col_week_start in sorted(week_columns.items()):
-        if col_week_start == week_start:
-            return col_letter
-    
-    # Если точное совпадение не найдено, ищем ближайшую неделю
-    for col_letter, col_week_start in sorted(week_columns.items()):
-        # Проверяем попадает ли тренировка в эту неделю (суббота + 6 дней)
-        week_end = col_week_start + timedelta(days=6)
-        if col_week_start <= activity_date <= week_end:
+    Неделя: понедельник - воскресенье (пн-вс)
+    Если тренировка 15.10, а воскресенье = 19.10, то понедельник = 13.10
+    Значит тренировка 15.10 попадает в неделю 13.10-19.10
+    """
+    # Ищем подходящий столбец по воскресенью
+    for col_letter, sunday_date in sunday_columns.items():
+        # Понедельник = воскресенье - 6 дней
+        monday_date = sunday_date - timedelta(days=6)
+        
+        # Проверяем попадает ли тренировка в неделю пн-вс
+        if monday_date <= activity_date <= sunday_date:
             return col_letter
     
     return None

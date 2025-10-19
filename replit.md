@@ -1,143 +1,36 @@
 # Garmin Connect to Google Sheets Sync
 
-## Обзор проекта
-Python скрипт для автоматической синхронизации данных тренировок из Garmin Connect в Google Таблицы. Предназначен для спортсменов, которые хотят собирать и анализировать свои тренировочные данные в удобном формате.
+## Overview
+This Python script automates the synchronization of training data from Garmin Connect to Google Sheets. It is designed for athletes who want to collect and analyze their training data in a convenient and structured format, specifically catering to triathlon metrics. The project aims to provide detailed insights into training performance by integrating key metrics like power, cadence, pace, and heart rate directly into a customizable spreadsheet.
 
-## Последние изменения
-- **19.10.2025**: Перезагружены недельные итоги для столбцов C-H
-  - ✅ **Строки 18, 19, 29, 30, 31**: все данные недельных итогов обновлены одним batch-запросом
-  - ✅ **Столбцы C-H**: покрывают недели с 13.09 по 18.10.2025
-  - ✅ **Оптимизация**: создан отдельный скрипт для перезагрузки без превышения квоты API
-
-- **16.10.2025 (поздний вечер)**: Добавлены недельные итоги для велосипеда и бега
-  - ✅ **Строка 18: TVD dist (Bike)**: недельный проезд в км (пн-вс) с суммированием всех велотренировок
-  - ✅ **Строка 19: TVT time (Bike)**: недельное время велосипеда (формат ЧЧ:ММ или ММ:СС)
-  - ✅ **Строка 29: TVD dist RUN**: недельный пробег в км (пн-вс) с суммированием всех беговых тренировок
-  - ✅ **Строка 30: TVT time RUN**: недельное время бега (формат ЧЧ:ММ или ММ:СС)
-  - ✅ **Строка 31: Вариабельность СР (HRV)**: автоматическое извлечение из воскресной Long Run тренировки
-  - ✅ **Функция calculate_weekly_totals()**: подсчет итогов для всей недели (сб-пт)
-  - ✅ **Оптимизация**: week_activities передается из main() для избежания повторных запросов к Garmin API
-  - ⚠️ **DAYS_TO_SYNC рекомендуется 14 дней** для избежания квоты Google Sheets API (по умолчанию 30)
-
-- **16.10.2025 (вечер)**: Добавлена обработка блока четверга (строка 60)
-  - ✅ **Новый блок "Длинный 3*14м (90% FTP) (чт)"**: строка 60 с датами четверга
-  - ✅ **Ключевые слова 'FTP' и 'ДЛИН'**: добавлены для распознавания блоков велосипеда
-  - ✅ **Строка 60 в date_rows**: добавлена в список строк с датами для парсинга
-  - ✅ **Метрики четверга**: Время (строка 61), Расстояние (62), Средний темп/скорость (63), Средняя ЧП/каденс (64)
-  - ✅ **Оптимизация API**: get_training_blocks() вызывается один раз вместо повторных вызовов
-  - ✅ **Проверено на 18.09, 25.09, 02.10**: все метрики четверга записываются корректно
-
-- **16.10.2025 (утро)**: Критическое исправление синхронизации субботы (строки 7-15)
-  - ✅ **Фиксированная обработка субботы**: использует week_start_date вместо текста ячейки B6 для определения даты
-  - ✅ **Правильные ключи данных**: исправлено извлечение скорости/каденса/ЧСС (avg_speed, avg_cadence, avg_hr)
-  - ✅ **Безопасное извлечение**: функция safe_get предотвращает ошибки IndexError при разной длине списков
-  - ✅ **Устранено дублирование**: суббота обрабатывается только один раз (строки 6-15 пропускаются в цикле блоков)
-  - ✅ **Проверено на 04.10 и 11.10**: все метрики записываются корректно (ваты, NP, скорость, каденс, ЧСС для вел + км, темп, ЧСС для бега брик)
-
-- **15.10.2025 (вечер)**: Исправлены блоки вторника/четверга (велосипед) и добавлена диагностика
-  - ✅ **Полная запись метрик вторника/четверга**: время, расстояние, скорость, каденс (ранее записывался только каденс)
-  - ✅ **Агрегация через слеш**: если несколько тренировок - все метрики через "/" (как мощность)
-  - ✅ **Диагностическая функция export_all_data_to_source()**: выгружает все данные Garmin на лист "исходник" (закомментирована, раскомментировать при необходимости)
-  - ✅ **Проверено на неделях F, G**: вторник 07.10, 14.10 - все метрики записываются корректно
-
-- **15.10.2025 (утро)**: Адаптация к новой структуре таблицы с нумерацией строк
-  - ✅ **Новая структура таблицы**: столбец A теперь содержит порядковые номера (1, 2, 3...), столбец B - названия блоков
-  - ✅ **Даты в строках блоков** вместо строки 1:
-    - Строка 20: "Лонг RUN (вс)" + даты воскресений
-    - Строка 33: "Становая + плаванье (пн)" + даты понедельников
-    - Строка 38: "Короткие интервалы BIKE (вт)" + даты вторников
-    - Строка 73: "отдых или сухое плаванье (пт)" + даты пятниц
-  - ✅ **Оптимизация чтения дат**: batch_get для всех строк блоков одним запросом (избежание квоты API)
-  - ✅ **Обновлены функции поиска**: все функции теперь читают столбец B для названий блоков
-
-- **13.10.2025**: Обновление структуры таблицы и синхронизация всех недель
-  - ✅ Синхронизация ВСЕХ недель за DAYS_TO_SYNC дней (убрано ограничение "только последняя")
-  - ✅ Фиксированная структура субботы (строки 7-15):
-    - Строки 7-11: метрики велосипеда (через /) - ваты, NP, скорость, каденс, ЧСС
-    - Строки 13-15: метрики бега брик - км, темп, ЧСС
-  - ✅ Единое форматирование БЕЗ единиц измерения (только цифры):
-    - Расстояние: "5.91" вместо "5.91 км"
-    - Темп: "5:07" вместо "5:07 /км"
-    - ЧСС: "159" вместо "159 уд./мин"
-  - ✅ Понедельник (Становая + плавание): динамический поиск строк для длительности тренировок
-  - ✅ BatchUpdater класс для оптимизации API запросов (решена проблема квоты Google Sheets)
-  
-- **09.10.2025**: Полностью переработан скрипт для работы с существующей структурой "ВЕЛ БЕГ"
-  - ✅ Реализована авторизация в Garmin Connect с кешированием сессии
-  - ✅ Интеграция с Google Sheets через Service Account
-  - ✅ Интеллектуальный поиск дат в столбце E (заголовки недель + строки блоков)
-  - ✅ Автоматическое распознавание тренировочных блоков
-  - ✅ Запись данных велосипеда: средние ваты, Normalized Power, скорость, каденс, ЧСС
-  - ✅ Запись данных бега: время, расстояние, темп, ЧСС
-  - ✅ Специальная обработка субботы (2 вел + 1 бег) с форматом через слеш
-  - ✅ Корректная запись "Бег брик" и "ЧСС бег" для субботы
-  - ✅ Форматирование данных (темп мин/км, время ЧЧ:ММ:СС, скорость км/ч)
-
-## Архитектура проекта
-
-### Структура файлов
-- `main.py` - основной скрипт синхронизации
-- `.env.example` - пример файла с переменными окружения
-- `.gitignore` - игнорируемые файлы Git
-- `README.md` - документация на русском языке
-- `replit.md` - документация проекта
-
-### Зависимости
-- `garminconnect` - библиотека для подключения к Garmin Connect API
-- `gspread` - библиотека для работы с Google Sheets API
-- `oauth2client` - аутентификация OAuth2 для Google API
-- `python-dotenv` - загрузка переменных окружения
-
-### Данные велосипеда (лист "Вел")
-- Дата тренировки
-- Средние ваты
-- Normalized Power
-- Средняя скорость (км/ч)
-- Частота вращения педалей (каденс)
-- Средняя ЧСС
-- Поля для ручного заполнения: субъективное ощущение, бег брик, ЧСС бег, TTV dist, TTV time
-
-### Данные бега (лист "Бег")
-- Дата тренировки
-- Время тренировки
-- Расстояние (км)
-- Средний темп (мин/км)
-- Средняя ЧСС
-- Поля для ручного заполнения: усталость (в течении дня, во время, после), TTR dist, TTR time, вариабельность СР
-
-## Настройка
-
-### Переменные окружения (Replit Secrets)
-1. `GARMIN_EMAIL` - email для входа в Garmin Connect
-2. `GARMIN_PASSWORD` - пароль от Garmin Connect
-3. `GOOGLE_SHEET_URL` - URL Google Таблицы
-4. `SERVICE_ACCOUNT_JSON` - JSON ключ Service Account из Google Cloud
-5. `DAYS_TO_SYNC` - количество дней для синхронизации (опционально, по умолчанию 7)
-
-### Google Cloud Setup
-1. Создать проект в Google Cloud Console
-2. Включить Google Sheets API
-3. Создать Service Account и скачать JSON ключ
-4. Поделиться Google Таблицей с email service account
-
-## Особенности реализации
-- **Структура таблицы**: столбец A с порядковыми номерами (1-76+), столбец B с названиями блоков
-- **Автоматическое определение столбца**: парсинг дат из строк блоков (20, 33, 38, 73) вместо строки 1
-- **Синхронизация всех недель**: скрипт обрабатывает ВСЕ недели за DAYS_TO_SYNC дней (по умолчанию 7)
-- **Фиксированная структура субботы**: строки 7-15 для метрик велосипеда и бега брик
-- **Динамический поиск строк**: для понедельника и других блоков - универсальная логика без хардкода
-- **BatchUpdater класс**: накопление всех обновлений и отправка одним batch_update запросом (оптимизация квоты API)
-- **Оптимизация чтения дат**: batch_get для строк 20, 33, 38, 73 одним запросом (экономия квоты API)
-- **Кеширование сессии Garmin**: сохранение SESSION_SECRET для избежания повторной авторизации
-- **Поддержка всех типов тренировок**: велосипед, бег, силовая, плавание
-- **Форматирование данных БЕЗ единиц измерения**: только числовые значения
-- Безопасное хранение учетных данных через переменные окружения
-- Форматирование темпа бега из м/с в мин/км
-- Форматирование времени тренировки в формат ЧЧ:ММ:СС
-- Конвертация скорости велосипеда из м/с в км/ч
-- Обработка ошибок и информативные логи
-
-## Пользовательские предпочтения
+## User Preferences
 - Язык: Русский
 - Формат данных: специфичные поля для триатлона (ваты, каденс, темп и т.д.)
 - Требуются поля для ручного заполнения субъективных данных
+
+## System Architecture
+The system is built around a `main.py` script that orchestrates data flow between Garmin Connect and Google Sheets.
+-   **UI/UX Decisions:** The project integrates with an existing Google Sheet structure that includes specific rows for training blocks (e.g., "Лонг RUN (вс)", "Становая + плаванье (пн)") and dedicated cells for various metrics. Data is formatted without units (e.g., "5.91" instead of "5.91 км") to maintain consistency.
+-   **Technical Implementations:**
+    -   **Garmin Connect Integration:** Utilizes the `garminconnect` library for authentication (with session caching) and data retrieval.
+    -   **Google Sheets Integration:** Employs `gspread` and `oauth2client` for secure interaction with Google Sheets via a Service Account.
+    -   **Data Processing:** Includes functions for parsing dates from specific block rows, calculating weekly totals for cycling and running, and safely extracting metrics from activity data.
+    -   **Optimization:** A `BatchUpdater` class is used to consolidate multiple cell updates into single batch requests, minimizing API quota consumption. Date reading is also optimized using `batch_get`.
+    -   **Data Mapping:** Specific logic handles the mapping of Garmin activity data to predefined cells in the Google Sheet for various training types (bike, run, strength, swim), including special handling for combined Saturday activities (bike + brick run).
+    -   **Data Conversion:** Handles conversions for pace (m/s to min/km), time (seconds to HH:MM:SS), and speed (m/s to km/h).
+-   **Feature Specifications:**
+    -   Automated synchronization of training data (bike, run, strength, swim).
+    -   Extraction of key metrics: average watts, Normalized Power, speed, cadence, heart rate, distance, pace, and HRV (planned).
+    -   Dynamic identification of training block rows and corresponding dates.
+    -   Calculation of weekly distance and time totals for cycling and running.
+    -   Error handling and informative logging.
+    -   Secure credential management via environment variables.
+
+## External Dependencies
+-   **Garmin Connect API:** Used for fetching user activity data.
+-   **Google Sheets API:** Used for reading from and writing to Google Spreadsheets.
+-   **Google Cloud Platform:** Required for managing API access and Service Account credentials.
+-   `garminconnect` library: Python wrapper for Garmin Connect.
+-   `gspread` library: Python client for Google Sheets API.
+-   `oauth2client` library: OAuth2 client for Google APIs.
+-   `python-dotenv` library: For loading environment variables.
