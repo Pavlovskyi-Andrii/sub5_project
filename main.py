@@ -294,35 +294,24 @@ class BatchUpdater:
         
         self.updates = []
 
-def calculate_weekly_totals(garmin_client, week_start_date, batch, col_index):
+def calculate_weekly_totals(garmin_client, week_activities, week_start_date, batch, col_index):
     """Подсчет недельных итогов для велосипеда и бега
     
     Args:
         garmin_client: Клиент Garmin
+        week_activities: Список всех активностей недели
         week_start_date: Дата начала недели (суббота)
         batch: BatchUpdater для записи данных
         col_index: Индекс столбца
     """
-    if not week_start_date:
+    if not week_start_date or not week_activities:
         return
     
     print(f"\n📊 Подсчет недельных итогов (пн-вс)...")
     
-    # Неделя: Суббота -> Воскресенье -> Пн -> Вт -> Ср -> Чт -> Пт
-    # То есть с субботы (week_start_date) до пятницы (+6 дней)
-    week_end_date = week_start_date + timedelta(days=6)
-    
-    # Получаем все тренировки недели
-    all_activities = []
-    current_date = week_start_date
-    while current_date <= week_end_date:
-        day_activities = get_activities_for_date(garmin_client, current_date)
-        all_activities.extend(day_activities)
-        current_date += timedelta(days=1)
-    
-    # Разделяем по типам
-    cycling_activities = [a for a in all_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
-    running_activities = [a for a in all_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+    # Разделяем активности по типам
+    cycling_activities = [a for a in week_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
+    running_activities = [a for a in week_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
     
     # ВЕЛОСИПЕД
     total_cycling_distance = 0  # в км
@@ -342,10 +331,15 @@ def calculate_weekly_totals(garmin_client, week_start_date, batch, col_index):
     total_running_time = 0  # в секундах
     sunday_long_run_hrv = None
     
-    # Находим воскресенье для HRV
+    # Находим воскресенье для HRV (воскресенье = суббота + 1 день)
     sunday_date = week_start_date + timedelta(days=1)
-    sunday_activities = get_activities_for_date(garmin_client, sunday_date)
-    sunday_runs = [a for a in sunday_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+    sunday_runs = []
+    for activity in running_activities:
+        start_time_str = activity.get('startTimeLocal', '')
+        if start_time_str:
+            activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
+            if activity_date == sunday_date:
+                sunday_runs.append(activity)
     
     for activity in running_activities:
         distance = activity.get('distance')
@@ -415,7 +409,7 @@ def calculate_weekly_totals(garmin_client, week_start_date, batch, col_index):
     
     print(f"  📈 Итого вел: {total_cycling_distance:.2f} км, бег: {total_running_distance:.2f} км")
 
-def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, training_blocks=None):
+def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, training_blocks=None, week_activities=None):
     """Синхронизация данных в конкретный столбец
     
     Args:
@@ -424,6 +418,7 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
         column: Столбец для синхронизации (A, B, C и т.д.)
         week_start_date: Дата начала недели (суббота), для блоков без даты
         training_blocks: Список блоков тренировок (для оптимизации API)
+        week_activities: Список всех активностей недели (для оптимизации API)
     """
     print(f"\n{'='*60}")
     print(f"Синхронизация для столбца {column}")
@@ -828,7 +823,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                             print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}{actual_row}")
     
     # Подсчитываем недельные итоги (строки 18, 19, 29, 30, 31)
-    calculate_weekly_totals(garmin_client, week_start_date, batch, col_index)
+    if week_activities:
+        calculate_weekly_totals(garmin_client, week_activities, week_start_date, batch, col_index)
     
     # Отправляем все накопленные обновления одним batch запросом
     batch.flush()
@@ -1075,8 +1071,8 @@ def main():
                 print(f"Найдено тренировок: {len(week_activities)}")
                 print(f"{'='*60}")
                 
-                # Передаем дату начала недели и блоки для оптимизации API
-                sync_to_sheet(garmin, worksheet, column, week_start_date=week_date, training_blocks=training_blocks)
+                # Передаем дату начала недели, блоки и активности для оптимизации API
+                sync_to_sheet(garmin, worksheet, column, week_start_date=week_date, training_blocks=training_blocks, week_activities=week_activities)
         else:
             print("\nℹ️  Нет тренировок для синхронизации")
         
