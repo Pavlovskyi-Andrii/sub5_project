@@ -294,6 +294,127 @@ class BatchUpdater:
         
         self.updates = []
 
+def calculate_weekly_totals(garmin_client, week_start_date, batch, col_index):
+    """Подсчет недельных итогов для велосипеда и бега
+    
+    Args:
+        garmin_client: Клиент Garmin
+        week_start_date: Дата начала недели (суббота)
+        batch: BatchUpdater для записи данных
+        col_index: Индекс столбца
+    """
+    if not week_start_date:
+        return
+    
+    print(f"\n📊 Подсчет недельных итогов (пн-вс)...")
+    
+    # Неделя: Суббота -> Воскресенье -> Пн -> Вт -> Ср -> Чт -> Пт
+    # То есть с субботы (week_start_date) до пятницы (+6 дней)
+    week_end_date = week_start_date + timedelta(days=6)
+    
+    # Получаем все тренировки недели
+    all_activities = []
+    current_date = week_start_date
+    while current_date <= week_end_date:
+        day_activities = get_activities_for_date(garmin_client, current_date)
+        all_activities.extend(day_activities)
+        current_date += timedelta(days=1)
+    
+    # Разделяем по типам
+    cycling_activities = [a for a in all_activities if 'cycling' in a.get('activityType', {}).get('typeKey', '').lower()]
+    running_activities = [a for a in all_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+    
+    # ВЕЛОСИПЕД
+    total_cycling_distance = 0  # в км
+    total_cycling_time = 0  # в секундах
+    
+    for activity in cycling_activities:
+        distance = activity.get('distance')
+        if distance:
+            total_cycling_distance += distance / 1000  # метры -> км
+        
+        duration = activity.get('duration')
+        if duration:
+            total_cycling_time += duration
+    
+    # БЕГА
+    total_running_distance = 0  # в км
+    total_running_time = 0  # в секундах
+    sunday_long_run_hrv = None
+    
+    # Находим воскресенье для HRV
+    sunday_date = week_start_date + timedelta(days=1)
+    sunday_activities = get_activities_for_date(garmin_client, sunday_date)
+    sunday_runs = [a for a in sunday_activities if 'running' in a.get('activityType', {}).get('typeKey', '').lower()]
+    
+    for activity in running_activities:
+        distance = activity.get('distance')
+        if distance:
+            total_running_distance += distance / 1000  # метры -> км
+        
+        duration = activity.get('duration')
+        if duration:
+            total_running_time += duration
+    
+    # Извлекаем HRV из воскресной Long Run
+    if sunday_runs:
+        # Берем первую (или самую длинную) тренировку воскресенья
+        long_run = sunday_runs[0]
+        activity_id = long_run.get('activityId')
+        
+        if activity_id:
+            try:
+                # Получаем детали тренировки
+                details = garmin_client.get_activity_details(activity_id)
+                # HRV может быть в разных полях
+                sunday_long_run_hrv = details.get('averageHeartRateVariability') or details.get('hrv')
+            except:
+                pass
+    
+    # Форматируем данные
+    # Строка 18: TVD dist (Bike) - недельный проезд в км
+    if total_cycling_distance > 0:
+        cycling_dist_str = f"{total_cycling_distance:.2f}"
+        batch.add_update(18, col_index + 1, cycling_dist_str)
+        print(f"  ✓ TVD dist (Bike): {cycling_dist_str} км → строка 18")
+    
+    # Строка 19: TVT time (Bike) - формат ЧЧ:ММ или ММ:СС
+    if total_cycling_time > 0:
+        hours = int(total_cycling_time // 3600)
+        minutes = int((total_cycling_time % 3600) // 60)
+        if hours > 0:
+            cycling_time_str = f"{hours}:{minutes:02d}"
+        else:
+            seconds = int(total_cycling_time % 60)
+            cycling_time_str = f"{minutes}:{seconds:02d}"
+        batch.add_update(19, col_index + 1, cycling_time_str)
+        print(f"  ✓ TVT time (Bike): {cycling_time_str} → строка 19")
+    
+    # Строка 29: TVD dist RUN - недельный пробег в км
+    if total_running_distance > 0:
+        running_dist_str = f"{total_running_distance:.2f}"
+        batch.add_update(29, col_index + 1, running_dist_str)
+        print(f"  ✓ TVD dist RUN: {running_dist_str} км → строка 29")
+    
+    # Строка 30: TVT time RUN
+    if total_running_time > 0:
+        hours = int(total_running_time // 3600)
+        minutes = int((total_running_time % 3600) // 60)
+        if hours > 0:
+            running_time_str = f"{hours}:{minutes:02d}"
+        else:
+            seconds = int(total_running_time % 60)
+            running_time_str = f"{minutes}:{seconds:02d}"
+        batch.add_update(30, col_index + 1, running_time_str)
+        print(f"  ✓ TVT time RUN: {running_time_str} → строка 30")
+    
+    # Строка 31: вариабельность СР из Long Run (вс)
+    if sunday_long_run_hrv:
+        batch.add_update(31, col_index + 1, sunday_long_run_hrv)
+        print(f"  ✓ Вариабельность СР (HRV): {sunday_long_run_hrv} → строка 31")
+    
+    print(f"  📈 Итого вел: {total_cycling_distance:.2f} км, бег: {total_running_distance:.2f} км")
+
 def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, training_blocks=None):
     """Синхронизация данных в конкретный столбец
     
@@ -705,6 +826,9 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                         if len(durations) >= 2:
                             batch.add_update(actual_row, col_index + 1, durations[1])
                             print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}{actual_row}")
+    
+    # Подсчитываем недельные итоги (строки 18, 19, 29, 30, 31)
+    calculate_weekly_totals(garmin_client, week_start_date, batch, col_index)
     
     # Отправляем все накопленные обновления одним batch запросом
     batch.flush()
