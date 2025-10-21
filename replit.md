@@ -30,7 +30,11 @@ The system is built around a `main.py` script that orchestrates data flow betwee
     -   **Data Conversion:** Handles conversions for pace (m/s to min/km), time (seconds to HH:MM:SS), and speed (m/s to km/h).
 -   **Feature Specifications:**
     -   Automated synchronization of training data (bike, run, strength, swim).
-    -   Extraction of key metrics: average watts, Normalized Power, speed, cadence, heart rate, distance, pace, and HRV (planned).
+    -   Extraction of key metrics: average watts, Normalized Power, TSS, average heart rate, cadence, speed, distance, pace, and HRV.
+    -   TSS (Training Stress Score) written to row 43 for all cycling blocks (Saturday, FTP/Friday, Tuesday, Thursday).
+    -   Heart rate (HR) written to row 42 "Средняя ЧП" for Tuesday, and row 64 for Thursday.
+    -   Cadence written to row 48 "средний каденс".
+    -   HRV (Heart Rate Variability) extracted from Sunday date and written to row 31.
     -   Dynamic identification of training block rows and corresponding dates.
     -   Calculation of weekly distance and time totals for cycling and running.
     -   Error handling and informative logging.

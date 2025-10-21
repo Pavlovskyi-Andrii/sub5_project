@@ -681,6 +681,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
         
         elif 'ВЕЛ' in name.upper() or 'BIKE' in name.upper() or 'FTP' in name.upper() or ('ЧТ' in name.upper() and 'ДЛИН' in name.upper()):
             # Это блок велосипеда
+            is_ftp_block = 'FTP' in name.upper()  # Флаг для FTP
+            is_thursday_block = 'ЧТ' in name.upper() and 'ДЛИН' in name.upper()  # Флаг для четверга
             if cycling_activities:
                 cycle_data = process_cycling_data(garmin_client, cycling_activities[:2])  # Макс 2 тренировки
                 
@@ -780,18 +782,24 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                             batch.add_update(actual_row, col_index + 1, cadence_str)
                             print(f"  ✓ Частота вращения: {cadence_str} → {chr(64+col_index+1)}{actual_row}")
                     
-                    # Различаем ЧП (каденс) и ЧСС (пульс)
-                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чп' in cell_text and 'чсс' not in cell_text:
-                        # Это каденс (ЧП = частота педалирования) - строка 48
+                    # Строка 42: "Средняя ЧП" - пользователь хочет сюда HR (несмотря на название)
+                    # Строка 48: "средний каденс" - сюда каденс
+                    elif 'каденс' in cell_text:
+                        # Строка 48: средний каденс
                         if cadence_str:
                             batch.add_update(actual_row, col_index + 1, cadence_str)
-                            print(f"  ✓ Средняя ЧП (каденс): {cadence_str} → {chr(64+col_index+1)}{actual_row}")
+                            print(f"  ✓ Средний каденс: {cadence_str} → {chr(64+col_index+1)}{actual_row}")
                     
-                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чсс' in cell_text:
-                        # Это средний пульс (ЧСС) - строка 42
+                    elif ('средн' in cell_text or 'срадн' in cell_text) and 'чп' in cell_text:
+                        # Строка 42: Средняя ЧП - пишем HR (несмотря на название)
                         if hr_str:
                             batch.add_update(actual_row, col_index + 1, hr_str)
-                            print(f"  ✓ Средняя ЧСС (пульс): {hr_str} → {chr(64+col_index+1)}{actual_row}")
+                            print(f"  ✓ Средняя ЧП (HR): {hr_str} → {chr(64+col_index+1)}{actual_row}")
+                
+                # Если это FTP блок (строка 3) или четверг (строка 60), TSS записываем в строку 43
+                if (is_ftp_block or is_thursday_block) and tss_str:
+                    batch.add_update(43, col_index + 1, tss_str)
+                    print(f"  ✓ TSS: {tss_str} → {chr(64+col_index+1)}43")
         
         elif ('СТАНОВ' in name.upper() or 'ПЛАВ' in name.upper()) and 'ПН' in name.upper():
             # Это понедельник - становая + плавание
