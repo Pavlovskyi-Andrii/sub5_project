@@ -29,4 +29,5 @@ args = "python main.py"
 outputType = "console"
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "scheduled"
+run = ["python3", "main.py"]

@@ -12,6 +12,7 @@ This Python script automates the synchronization of training data from Garmin Co
   - ✅ **Row 31 (HRV)**: Heart Rate Variability from Sunday Long Run
   - ✅ **LSP errors**: Fixed type checking for activity objects
   - ✅ **Week calculation**: Monday-Sunday (fixed from Saturday-Friday on 19.10.2025)
+  - ✅ **Deployment**: Configured as Scheduled deployment (not Autoscale) for periodic data sync
 
 ## User Preferences
 - Язык: Русский
