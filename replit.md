@@ -3,6 +3,16 @@
 ## Overview
 This Python script automates the synchronization of training data from Garmin Connect to Google Sheets. It is designed for athletes who want to collect and analyze their training data in a convenient and structured format, specifically catering to triathlon metrics. The project aims to provide detailed insights into training performance by integrating key metrics like power, cadence, pace, and heart rate directly into a customizable spreadsheet.
 
+## Recent Changes
+- **21.10.2025**: Added new metrics for cycling workouts
+  - ✅ **Row 42 (Average HR)**: Average heart rate from cycling activities
+  - ✅ **Row 43 (TSS)**: Training Stress Score for all cycling workouts
+  - ✅ **Row 44 (Normalized Power)**: Already working, added recognition in dynamic blocks
+  - ✅ **Row 48 (Average Cadence)**: Cadence for each workout
+  - ✅ **Row 31 (HRV)**: Heart Rate Variability from Sunday Long Run
+  - ✅ **LSP errors**: Fixed type checking for activity objects
+  - ✅ **Week calculation**: Monday-Sunday (fixed from Saturday-Friday on 19.10.2025)
+
 ## User Preferences
 - Язык: Русский
 - Формат данных: специфичные поля для триатлона (ваты, каденс, темп и т.д.)

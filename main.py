@@ -212,7 +212,8 @@ def process_cycling_data(garmin_client, activities):
         'normalized_power': [],
         'avg_speed': [],
         'avg_cadence': [],
-        'avg_hr': []
+        'avg_hr': [],
+        'tss': []
     }
     
     for activity in activities:
@@ -225,6 +226,7 @@ def process_cycling_data(garmin_client, activities):
         avg_speed = round(summary.get('averageSpeed', 0) * 3.6, 1) if summary.get('averageSpeed') else ''
         avg_cadence = summary.get('averageBikeCadence', '')
         avg_hr = summary.get('averageHR', '')
+        tss = summary.get('trainingStressScore', '')
         
         if avg_power:
             data['avg_power'].append(str(int(avg_power)))
@@ -236,6 +238,8 @@ def process_cycling_data(garmin_client, activities):
             data['avg_cadence'].append(str(int(avg_cadence)))
         if avg_hr:
             data['avg_hr'].append(str(int(avg_hr)))
+        if tss:
+            data['tss'].append(str(int(tss)))
     
     return data
 
@@ -365,18 +369,17 @@ def calculate_weekly_totals(garmin_client, week_activities, sunday_date, batch, 
     
     # Извлекаем HRV из воскресной Long Run
     if sunday_runs:
-        # Берем первую (или самую длинную) тренировку воскресенья
-        long_run = sunday_runs[0]
-        activity_id = long_run.get('activityId')
-        
-        if activity_id:
-            try:
-                # Получаем детали тренировки
-                details = garmin_client.get_activity_details(activity_id)
-                # HRV может быть в разных полях
-                sunday_long_run_hrv = details.get('averageHeartRateVariability') or details.get('hrv')
-            except:
-                pass
+        try:
+            # Получаем HRV данные для воскресенья
+            hrv_data = garmin_client.get_hrv_data(sunday_date.strftime('%Y-%m-%d'))
+            if hrv_data and 'hrvSummary' in hrv_data:
+                # lastNightAvg - средняя HRV за последнюю ночь
+                hrv_value = hrv_data['hrvSummary'].get('lastNightAvg')
+                if hrv_value:
+                    sunday_long_run_hrv = str(hrv_value)
+        except Exception as e:
+            print(f"  ⚠️ Не удалось получить HRV: {e}")
+            pass
     
     # Форматируем данные
     # Строка 18: TVD dist (Bike) - недельный проезд в км
@@ -602,8 +605,9 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                 speed_str = format_values(cycle_data['avg_speed'])
                 cadence_str = format_values(cycle_data['avg_cadence'])
                 hr_str = format_values(cycle_data['avg_hr'])
+                tss_str = format_values(cycle_data['tss'])
                 
-                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
+                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}, TSS={tss_str}")
                 
                 # Строка 7: Средние ваты
                 if avg_power_str:
@@ -629,6 +633,12 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                 if hr_str:
                     batch.add_update(11, col_index + 1, hr_str)
                     print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}11")
+                
+                # Строка 43: TSS (между субботними блоками и следующим блоком)
+                # ВАЖНО: это строка находится ниже субботнего блока
+                if tss_str:
+                    batch.add_update(43, col_index + 1, tss_str)
+                    print(f"  ✓ TSS: {tss_str} → {chr(64+col_index+1)}43")
             
             # Потом записываем бег брик (строки 13-15)
             if running_activities:
@@ -690,8 +700,9 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                 speed_str = format_values(cycle_data['avg_speed'])
                 cadence_str = format_values(cycle_data['avg_cadence'])
                 hr_str = format_values(cycle_data['avg_hr'])
+                tss_str = format_values(cycle_data['tss'])
                 
-                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}")
+                print(f"  📊 Данные вел: power={avg_power_str}, NP={np_str}, speed={speed_str}, cadence={cadence_str}, HR={hr_str}, TSS={tss_str}")
                 
                 # Ищем строки по тексту в колонке B (только в пределах блока)
                 # row_num - это уже 1-based индекс из enumerate
@@ -753,6 +764,12 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                             batch.add_update(actual_row, col_index + 1, np_str)
                             print(f"  ✓ Normalized Power: {np_str} → {chr(64+col_index+1)}{actual_row}")
                     
+                    elif 'tss' in cell_text or 'training stress' in cell_text:
+                        # Строка 43: TSS
+                        if tss_str:
+                            batch.add_update(actual_row, col_index + 1, tss_str)
+                            print(f"  ✓ TSS: {tss_str} → {chr(64+col_index+1)}{actual_row}")
+                    
                     elif 'сред' in cell_text and 'скор' in cell_text:
                         if speed_str:
                             batch.add_update(actual_row, col_index + 1, speed_str)
@@ -765,16 +782,16 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                     
                     # Различаем ЧП (каденс) и ЧСС (пульс)
                     elif ('средн' in cell_text or 'срадн' in cell_text) and 'чп' in cell_text and 'чсс' not in cell_text:
-                        # Это каденс (ЧП = частота педалирования)
+                        # Это каденс (ЧП = частота педалирования) - строка 48
                         if cadence_str:
                             batch.add_update(actual_row, col_index + 1, cadence_str)
                             print(f"  ✓ Средняя ЧП (каденс): {cadence_str} → {chr(64+col_index+1)}{actual_row}")
                     
                     elif ('средн' in cell_text or 'срадн' in cell_text) and 'чсс' in cell_text:
-                        # Это пульс (ЧСС)
+                        # Это средний пульс (ЧСС) - строка 42
                         if hr_str:
                             batch.add_update(actual_row, col_index + 1, hr_str)
-                            print(f"  ✓ Средняя ЧСС: {hr_str} → {chr(64+col_index+1)}{actual_row}")
+                            print(f"  ✓ Средняя ЧСС (пульс): {hr_str} → {chr(64+col_index+1)}{actual_row}")
         
         elif ('СТАНОВ' in name.upper() or 'ПЛАВ' in name.upper()) and 'ПН' in name.upper():
             # Это понедельник - становая + плавание
@@ -1030,6 +1047,10 @@ def main():
         print("\n📊 Тренировки из Garmin:")
         activities_by_week = {}
         for activity in activities:
+            # Проверяем что activity это dict
+            if not isinstance(activity, dict):
+                continue
+                
             start_time = activity.get('startTimeLocal', '')
             if start_time:
                 activity_date = datetime.strptime(start_time[:10], '%Y-%m-%d').date()
