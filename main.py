@@ -449,10 +449,13 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
     # ФИКСИРОВАННАЯ ОБРАБОТКА СУББОТЫ (строки 7-15)
     # Суббота ВСЕГДА обрабатывается если есть week_start_date
     if week_start_date:
-        print(f"\n📅 Суббота (Вел длинная + бег брик) - {week_start_date.strftime('%d.%m.%y')}")
+        # ВАЖНО: week_start_date это ВОСКРЕСЕНЬЕ (из строки 20)
+        # Для субботы нужно взять день раньше
+        saturday_date = week_start_date - timedelta(days=1)
+        print(f"\n📅 Суббота (Вел длинная + бег брик) - {saturday_date.strftime('%d.%m.%y')}")
         
         # Получаем тренировки за субботу
-        saturday_activities = get_activities_for_date(garmin_client, week_start_date)
+        saturday_activities = get_activities_for_date(garmin_client, saturday_date)
         
         if saturday_activities:
             # Разделяем по типам
@@ -641,8 +644,13 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                     print(f"  ✓ TSS: {tss_str} → {chr(64+col_index+1)}43")
             
             # Потом записываем бег брик (строки 13-15)
+            # ВАЖНО: Для брик бега берем ПОСЛЕДНЮЮ беговую тренировку дня (по времени)
+            # потому что брик бег всегда идет после велосипеда
             if running_activities:
-                run_data = process_running_data(garmin_client, running_activities[0])
+                # Сортируем по времени начала и берем последнюю
+                running_sorted = sorted(running_activities, key=lambda x: x.get('startTimeLocal', ''))
+                brick_run = running_sorted[-1]  # Последняя по времени = брик бег
+                run_data = process_running_data(garmin_client, brick_run)
                 
                 # Строка 13: Бег брик км
                 if run_data.get('distance'):
