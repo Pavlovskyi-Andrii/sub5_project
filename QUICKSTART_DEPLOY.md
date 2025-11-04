@@ -39,7 +39,7 @@ https://render.com - войдите через GitHub
 - Runtime: **Python 3**
 - Build Command: `pip install -r requirements.txt`
 - Pre-Deploy Command: `python init_db.py`
-- Start Command: `gunicorn app:app`
+- Start Command: `python -m gunicorn app:app`
 
 ### 3️⃣ Добавьте переменные
 В разделе **"Environment"**:
