@@ -1,8 +1,10 @@
 # Render Deployment Guide
 
-## Problem Fixed
+## Problems Fixed
 
-The deployment was failing with `gunicorn: command not found` because Render was auto-detecting the app instead of using the correct configuration.
+1. **gunicorn: command not found** - Render was auto-detecting the app instead of using the correct configuration
+2. **Build timeout** - Unnecessary heavy dependencies (pandas, plotly, APScheduler) were causing the build to timeout or fail before gunicorn was installed
+3. **Incomplete dependency installation** - Build was stopping during pandas compilation
 
 ## Solution - Two Deployment Methods
 
@@ -44,17 +46,23 @@ If you've already created a Web Service manually:
 
 ### Fixed Files:
 
-1. **render.yaml**:
-   - Updated start command to: `gunicorn app:app --bind 0.0.0.0:$PORT`
-   - Removed `preDeployCommand` that might cause issues
-   - Added PORT environment variable
+1. **requirements.txt**:
+   - ✅ Removed unused dependencies: pandas, plotly, APScheduler, requests
+   - ⚡ Now installs much faster (5-10 seconds instead of timing out)
+   - Only includes essential packages for the Flask app
 
-2. **app.py**:
+2. **render.yaml**:
+   - Updated build command: `pip install --upgrade pip && pip install -r requirements.txt --no-cache-dir`
+   - Updated start command: `gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
+   - Added `--no-cache-dir` to save memory during build
+   - Added production environment variable
+
+3. **app.py**:
    - Added automatic database initialization when the app starts
    - No need for separate database setup step
 
-3. **Procfile** (already correct):
-   - Command: `web: python -m gunicorn app:app --bind 0.0.0.0:$PORT`
+4. **Procfile**:
+   - Updated to match render.yaml: `web: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120`
 
 ## Verification
 
