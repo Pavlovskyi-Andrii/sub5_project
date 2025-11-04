@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Road to SUB5 - Training Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-running"></i>
+                    <h1>Road to SUB5</h1>
+                </div>
+                <div class="header-actions">
+                    <button id="syncBtn" class="btn btn-primary">
+                        <i class="fas fa-sync"></i> Синхронизировать
+                    </button>
+                    <div class="dropdown">
+                        <button class="btn btn-secondary dropdown-toggle">
+                            <i class="fas fa-download"></i> Экспорт
+                        </button>
+                        <div class="dropdown-menu">
+                            <a href="/api/export/json" class="dropdown-item">JSON</a>
+                            <a href="/api/export/csv" class="dropdown-item">CSV</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="card">
+                <div class="card-icon cycling">
+                    <i class="fas fa-bicycle"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Велосипед (неделя)</h3>
+                    <p class="metric" id="cyclingKm">0 км</p>
+                    <span class="label">Общий пробег</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon running">
+                    <i class="fas fa-running"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Бег (неделя)</h3>
+                    <p class="metric" id="runningKm">0 км</p>
+                    <span class="label">Общий пробег</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon activities">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Тренировки</h3>
+                    <p class="metric" id="totalActivities">0</p>
+                    <span class="label">За текущую неделю</span>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-icon sync">
+                    <i class="fas fa-cloud-download-alt"></i>
+                </div>
+                <div class="card-content">
+                    <h3>Последняя синхронизация</h3>
+                    <p class="metric" id="lastSync">—</p>
+                    <span class="label" id="syncStatus">Не выполнялась</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" data-tab="overview">Обзор</button>
+            <button class="tab" data-tab="activities">Тренировки</button>
+            <button class="tab" data-tab="weekly">Недельная статистика</button>
+            <button class="tab" data-tab="logs">Логи синхронизации</button>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Overview Tab -->
+            <div id="overview" class="tab-pane active">
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Недельный объем тренировок</h3>
+                        <canvas id="weeklyVolumeChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Распределение по типам</h3>
+                        <canvas id="activityTypeChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="recent-activities">
+                    <h3>Последние тренировки</h3>
+                    <div id="recentActivitiesList" class="activities-list">
+                        <!-- Activities will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activities Tab -->
+            <div id="activities" class="tab-pane">
+                <div class="filters">
+                    <div class="filter-group">
+                        <label>Дата с:</label>
+                        <input type="date" id="startDate" class="form-control">
+                    </div>
+                    <div class="filter-group">
+                        <label>Дата по:</label>
+                        <input type="date" id="endDate" class="form-control">
+                    </div>
+                    <div class="filter-group">
+                        <label>Тип:</label>
+                        <select id="activityType" class="form-control">
+                            <option value="">Все</option>
+                            <option value="cycling">Велосипед</option>
+                            <option value="running">Бег</option>
+                            <option value="swimming">Плавание</option>
+                            <option value="strength">Силовая</option>
+                        </select>
+                    </div>
+                    <button id="applyFilters" class="btn btn-primary">Применить</button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Название</th>
+                                <th>Тип</th>
+                                <th>Время</th>
+                                <th>Расстояние</th>
+                                <th>Ср. скорость</th>
+                                <th>Ср. ЧСС</th>
+                                <th>Мощность (Вт)</th>
+                                <th>NP (Вт)</th>
+                                <th>Каденс</th>
+                                <th>TSS</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activitiesTableBody">
+                            <!-- Activities will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Weekly Stats Tab -->
+            <div id="weekly" class="tab-pane">
+                <div class="weekly-stats-grid">
+                    <div class="chart-container">
+                        <h3>Недельный километраж</h3>
+                        <canvas id="weeklyDistanceChart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Недельное время тренировок</h3>
+                        <canvas id="weeklyTimeChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <h3>Недельная статистика</h3>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Неделя</th>
+                                <th>Вел (км)</th>
+                                <th>Вел (время)</th>
+                                <th>Бег (км)</th>
+                                <th>Бег (время)</th>
+                                <th>Всего тренировок</th>
+                                <th>HRV</th>
+                            </tr>
+                        </thead>
+                        <tbody id="weeklyStatsTableBody">
+                            <!-- Weekly stats will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div id="logs" class="tab-pane">
+                <div class="logs-container">
+                    <h3>История синхронизации</h3>
+                    <div id="syncLogsList" class="logs-list">
+                        <!-- Logs will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <p>Загрузка данных...</p>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification">
+        <span id="notificationText"></span>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

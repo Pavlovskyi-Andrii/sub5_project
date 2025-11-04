@@ -30,6 +30,7 @@ venv/
 ENV/
 env/
 .venv
+ .venv/
 
 # IDE
 .vscode/
@@ -45,3 +46,7 @@ Thumbs.db
 # Garmin session data
 .garminconnect/
 garmin_session.json
+
+
+training_data.db
+*.db
