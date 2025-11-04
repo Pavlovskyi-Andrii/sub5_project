@@ -442,6 +442,11 @@ def export_data(format):
     
     conn.close()
 
+# Initialize database on import (for gunicorn)
+if not os.path.exists(DB_PATH):
+    logger.info("Database not found, initializing...")
+    init_db()
+
 if __name__ == '__main__':
     # Initialize database if it doesn't exist
     if not os.path.exists(DB_PATH):
