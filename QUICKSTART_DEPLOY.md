@@ -38,6 +38,7 @@ https://render.com - войдите через GitHub
 - Name: `road-to-sub5`
 - Runtime: **Python 3**
 - Build Command: `pip install -r requirements.txt`
+- Pre-Deploy Command: `python init_db.py`
 - Start Command: `gunicorn app:app`
 
 ### 3️⃣ Добавьте переменные

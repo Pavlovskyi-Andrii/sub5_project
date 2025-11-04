@@ -443,7 +443,10 @@ def export_data(format):
     conn.close()
 
 if __name__ == '__main__':
-    init_db()
+    # Initialize database if it doesn't exist
+    if not os.path.exists(DB_PATH):
+        init_db()
+
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV', 'production') == 'development'
     app.run(debug=debug, host='0.0.0.0', port=port)
