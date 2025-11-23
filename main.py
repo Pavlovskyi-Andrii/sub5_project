@@ -315,27 +315,26 @@ def calculate_weekly_totals(garmin_client, week_activities, sunday_date, batch, 
     Args:
         garmin_client: Клиент Garmin
         week_activities: Список всех активностей недели
-        sunday_date: Дата воскресенья из строки 20 (второй день недели)
+        sunday_date: Дата воскресенья из строки 20 (конец недели)
         batch: BatchUpdater для записи данных
         col_index: Индекс столбца
     """
     if not sunday_date or not week_activities:
         return
 
-    # Неделя: ПОНЕДЕЛЬНИК - СУББОТА (пн-сб)
-    # Если воскресенье = 23.11, то суббота = 22.11, понедельник = 17.11
-    saturday_date = sunday_date - timedelta(days=1)  # Суббота = воскресенье - 1
+    # Неделя: ПОНЕДЕЛЬНИК - ВОСКРЕСЕНЬЕ (пн-вс)
+    # Если воскресенье = 23.11, то понедельник = 17.11
     monday_date = sunday_date - timedelta(days=6)    # Понедельник = воскресенье - 6
 
-    print(f"\n📊 Подсчет недельных итогов (пн-сб: {monday_date.strftime('%d.%m')} - {saturday_date.strftime('%d.%m')})...")
+    print(f"\n📊 Подсчет недельных итогов (пн-вс: {monday_date.strftime('%d.%m')} - {sunday_date.strftime('%d.%m')})...")
 
-    # Фильтруем активности недели (пн-сб)
+    # Фильтруем активности недели (пн-вс)
     week_filtered_activities = []
     for activity in week_activities:
         start_time_str = activity.get('startTimeLocal', '')
         if start_time_str:
             activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if monday_date <= activity_date <= saturday_date:
+            if monday_date <= activity_date <= sunday_date:
                 week_filtered_activities.append(activity)
     
     # Разделяем по типам
@@ -841,61 +840,72 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
         elif ('СТАНОВ' in name.upper() or 'ПЛАВ' in name.upper()) and 'ПН' in name.upper():
             # Это понедельник - становая + плавание
             # Записываем длительность тренировок
-            if strength_activities or swimming_activities:
-                durations = []
-                
-                # Получаем длительность силовой
-                if strength_activities:
-                    activity_id = strength_activities[0]['activityId']
-                    details = garmin_client.get_activity(activity_id)
-                    summary = details.get('summaryDTO', {})
-                    duration_sec = summary.get('duration', 0)
-                    if duration_sec:
-                        hours = int(duration_sec // 3600)
-                        minutes = int((duration_sec % 3600) // 60)
-                        seconds = int(duration_sec % 60)
-                        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                        durations.append(duration_str)
-                
-                # Получаем длительность плавания
-                if swimming_activities:
-                    activity_id = swimming_activities[0]['activityId']
-                    details = garmin_client.get_activity(activity_id)
-                    summary = details.get('summaryDTO', {})
-                    duration_sec = summary.get('duration', 0)
-                    if duration_sec:
-                        hours = int(duration_sec // 3600)
-                        minutes = int((duration_sec % 3600) // 60)
-                        seconds = int(duration_sec % 60)
-                        duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                        durations.append(duration_str)
-                
-                # Ищем строки для записи длительности (динамически в пределах блока)
-                # Столбец B теперь содержит названия (столбец A - порядковые номера)
-                col_b = worksheet.col_values(2)
-                
-                # Находим конец блока
-                block_end = len(col_b)
-                for next_idx in range(row_num, len(col_b)):
-                    next_text = str(col_b[next_idx]).strip().upper() if next_idx < len(col_b) else ''
-                    if next_text and next_idx > row_num and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'ЛОНГ', 'ИНТЕРВАЛ', 'КОРОТКИЕ', 'ДЛИН']):
-                        block_end = next_idx
-                        break
-                
-                # Ищем строки "Длительность первой/второй тренировки"
-                for search_idx in range(row_num - 1, min(block_end, len(col_b))):
-                    cell_text = str(col_b[search_idx]).strip().lower() if search_idx < len(col_b) else ''
-                    actual_row = search_idx + 1
-                    
-                    if 'длительност' in cell_text and 'перв' in cell_text:
-                        if len(durations) >= 1:
-                            batch.add_update(actual_row, col_index + 1, durations[0])
-                            print(f"  ✓ Длительность первой тренировки: {durations[0]} → {chr(64+col_index+1)}{actual_row}")
-                    
-                    elif 'длительност' in cell_text and 'втор' in cell_text:
-                        if len(durations) >= 2:
-                            batch.add_update(actual_row, col_index + 1, durations[1])
-                            print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}{actual_row}")
+            durations = []
+
+            # Получаем длительность силовой
+            if strength_activities:
+                activity_id = strength_activities[0]['activityId']
+                details = garmin_client.get_activity(activity_id)
+                summary = details.get('summaryDTO', {})
+                duration_sec = summary.get('duration', 0)
+                if duration_sec:
+                    hours = int(duration_sec // 3600)
+                    minutes = int((duration_sec % 3600) // 60)
+                    seconds = int(duration_sec % 60)
+                    duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    durations.append(duration_str)
+
+            # Получаем длительность плавания
+            if swimming_activities:
+                activity_id = swimming_activities[0]['activityId']
+                details = garmin_client.get_activity(activity_id)
+                summary = details.get('summaryDTO', {})
+                duration_sec = summary.get('duration', 0)
+                if duration_sec:
+                    hours = int(duration_sec // 3600)
+                    minutes = int((duration_sec % 3600) // 60)
+                    seconds = int(duration_sec % 60)
+                    duration_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    durations.append(duration_str)
+
+            # Ищем строки для записи длительности (динамически в пределах блока)
+            # Столбец B теперь содержит названия (столбец A - порядковые номера)
+            col_b = worksheet.col_values(2)
+
+            # Находим конец блока
+            block_end = len(col_b)
+            for next_idx in range(row_num, len(col_b)):
+                next_text = str(col_b[next_idx]).strip().upper() if next_idx < len(col_b) else ''
+                if next_text and next_idx > row_num and any(kw in next_text for kw in ['RUN', 'BIKE', 'БЕГ', 'ВЕЛ', 'ПЛАВ', 'ЛОНГ', 'ИНТЕРВАЛ', 'КОРОТКИЕ', 'ДЛИН']):
+                    block_end = next_idx
+                    break
+
+            # Ищем строки "Длительность первой/второй тренировки"
+            for search_idx in range(row_num - 1, min(block_end, len(col_b))):
+                cell_text = str(col_b[search_idx]).strip().lower() if search_idx < len(col_b) else ''
+                actual_row = search_idx + 1
+
+                # ВАЖНО: строка 33 это заголовок блока, не заполняем его
+                if actual_row == 33:
+                    continue
+
+                if 'длительност' in cell_text and 'перв' in cell_text:
+                    # Строка 34: длительность первой тренировки
+                    if len(durations) >= 1:
+                        batch.add_update(actual_row, col_index + 1, durations[0])
+                        print(f"  ✓ Длительность первой тренировки: {durations[0]} → {chr(64+col_index+1)}{actual_row}")
+                    else:
+                        batch.add_update(actual_row, col_index + 1, "—")
+                        print(f"  ✓ Длительность первой тренировки: — → {chr(64+col_index+1)}{actual_row}")
+
+                elif 'длительност' in cell_text and 'втор' in cell_text:
+                    # Строка 35: длительность второй тренировки
+                    if len(durations) >= 2:
+                        batch.add_update(actual_row, col_index + 1, durations[1])
+                        print(f"  ✓ Длительность второй тренировки: {durations[1]} → {chr(64+col_index+1)}{actual_row}")
+                    else:
+                        batch.add_update(actual_row, col_index + 1, "—")
+                        print(f"  ✓ Длительность второй тренировки: — → {chr(64+col_index+1)}{actual_row}")
     
     # Подсчитываем недельные итоги (строки 18, 19, 29, 30, 31)
     # Параметр week_start_date на самом деле содержит sunday_date (из строки 20)

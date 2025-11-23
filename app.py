@@ -260,6 +260,18 @@ def sync_google_sheets_only():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/api/sync-google-sheets-full', methods=['POST'])
+def sync_google_sheets_full():
+    """Trigger FULL Google Sheets synchronization from 13.09.2025"""
+    try:
+        # Run full sync in background thread
+        thread = threading.Thread(target=perform_full_google_sheets_sync)
+        thread.start()
+
+        return jsonify({'status': 'started', 'message': 'Полная синхронизация таблицы с 13.09.2025 запущена'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 def perform_sync():
     """Perform the actual synchronization"""
     try:
@@ -355,6 +367,58 @@ def perform_google_sheets_sync():
 
     except Exception as e:
         logger.error(f"Google Sheets sync failed: {e}")
+        log_sync('error', 0, str(e))
+
+def perform_full_google_sheets_sync():
+    """Perform FULL Google Sheets synchronization from 13.09.2025"""
+    try:
+        logger.info("Starting FULL Google Sheets synchronization from 13.09.2025...")
+
+        # Connect to Garmin
+        garmin = connect_to_garmin()
+
+        # Получаем ВСЕ тренировки с 13.09.2025
+        # Рассчитываем количество дней с 13.09.2025 до сегодня
+        start_date = datetime(2025, 9, 13).date()
+        today = datetime.now().date()
+        days_diff = (today - start_date).days
+
+        logger.info(f"Fetching activities from {start_date.strftime('%d.%m.%Y')} ({days_diff} days)")
+
+        # Получаем тренировки (максимум 500 для надежности)
+        # Обычно ~5-10 тренировок в неделю, за 100 дней это ~70-140 тренировок
+        activities = garmin.get_activities(0, min(500, days_diff * 2))
+
+        # Фильтруем только те, что с 13.09.2025
+        filtered_activities = []
+        for activity in activities:
+            if not isinstance(activity, dict):
+                continue
+
+            start_time = activity.get('startTimeLocal', '')
+            if start_time:
+                activity_date = datetime.strptime(start_time[:10], '%Y-%m-%d').date()
+                if activity_date >= start_date:
+                    filtered_activities.append(activity)
+
+        logger.info(f"Found {len(filtered_activities)} activities since {start_date.strftime('%d.%m.%Y')}")
+
+        if not filtered_activities:
+            logger.warning("No activities found to sync")
+            log_sync('error', 0, 'No activities found')
+            return
+
+        # Sync to Google Sheets
+        sync_to_google_sheets(garmin, filtered_activities)
+
+        # Log successful sync
+        log_sync('success', len(filtered_activities), details={'source': 'garmin', 'type': 'full_sync', 'start_date': '13.09.2025'})
+        logger.info(f"FULL Google Sheets synchronization complete. Synced {len(filtered_activities)} activities.")
+
+    except Exception as e:
+        logger.error(f"FULL Google Sheets sync failed: {e}")
+        import traceback
+        traceback.print_exc()
         log_sync('error', 0, str(e))
 
 def sync_to_google_sheets(garmin, activities):

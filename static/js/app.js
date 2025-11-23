@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeTabs();
     initializeSyncButton();
     initializeGoogleSheetsSyncButton();
+    initializeGoogleSheetsFullSyncButton();
     initializeFilters();
     loadDashboardData();
 
@@ -109,6 +110,46 @@ function initializeGoogleSheetsSyncButton() {
         } finally {
             this.classList.remove('syncing');
             this.innerHTML = '<i class="fas fa-table"></i> Синхронизировать Google Таблицу';
+            this.disabled = false;
+        }
+    });
+}
+
+// Google Sheets FULL Sync Button (from 13.09.2025)
+function initializeGoogleSheetsFullSyncButton() {
+    const syncGoogleSheetsFullBtn = document.getElementById('syncGoogleSheetsFullBtn');
+
+    syncGoogleSheetsFullBtn.addEventListener('click', async function() {
+        // Show confirmation dialog
+        if (!confirm('Вы уверены что хотите обновить всю таблицу с 13.09.2025? Это может занять несколько минут.')) {
+            return;
+        }
+
+        if (this.classList.contains('syncing')) {
+            return; // Prevent multiple clicks
+        }
+
+        this.classList.add('syncing');
+        this.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> Обновление...';
+        this.disabled = true;
+
+        try {
+            const response = await axios.post('/api/sync-google-sheets-full');
+
+            if (response.data.status === 'started') {
+                showNotification('Полная синхронизация таблицы запущена. Это может занять несколько минут...', 'success');
+
+                // Wait longer for full sync
+                setTimeout(() => {
+                    loadDashboardData();
+                }, 10000);
+            }
+        } catch (error) {
+            console.error('Google Sheets FULL sync error:', error);
+            showNotification('Ошибка полной синхронизации: ' + (error.response?.data?.message || error.message), 'error');
+        } finally {
+            this.classList.remove('syncing');
+            this.innerHTML = '<i class="fas fa-sync-alt"></i> Обновить всю таблицу (с 13.09.2025)';
             this.disabled = false;
         }
     });
