@@ -161,15 +161,25 @@ def format_pace(speed_mps):
     seconds = int((pace_min_per_km - minutes) * 60)
     return f"{minutes}:{seconds:02d}"
 
-def get_activities_for_date(garmin_client, target_date):
-    """Получить все тренировки за конкретную дату"""
-    # Получаем тренировки за этот день
-    activities = garmin_client.get_activities(0, 50)  # Берем последние 50 тренировок
-    
+def get_activities_for_date(garmin_client, target_date, all_activities=None):
+    """Получить все тренировки за конкретную дату
+
+    Args:
+        garmin_client: Клиент Garmin
+        target_date: Целевая дата
+        all_activities: Опциональный список всех тренировок (для оптимизации)
+    """
+    # Если передан список тренировок, используем его
+    if all_activities is not None:
+        activities = all_activities
+    else:
+        # Иначе получаем тренировки из Garmin (увеличили лимит до 200)
+        activities = garmin_client.get_activities(0, 200)
+
     # Если target_date - datetime, преобразуем в date
     if hasattr(target_date, 'date'):
         target_date = target_date.date()
-    
+
     result = []
     for activity in activities:
         start_time_str = activity.get('startTimeLocal', '')
@@ -177,7 +187,7 @@ def get_activities_for_date(garmin_client, target_date):
             activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
             if activity_date == target_date:
                 result.append(activity)
-    
+
     return result
 
 def get_training_blocks(worksheet):
@@ -301,30 +311,31 @@ class BatchUpdater:
 
 def calculate_weekly_totals(garmin_client, week_activities, sunday_date, batch, col_index):
     """Подсчет недельных итогов для велосипеда и бега
-    
+
     Args:
         garmin_client: Клиент Garmin
         week_activities: Список всех активностей недели
-        sunday_date: Дата воскресенья (конец недели из строки 20)
+        sunday_date: Дата воскресенья из строки 20 (второй день недели)
         batch: BatchUpdater для записи данных
         col_index: Индекс столбца
     """
     if not sunday_date or not week_activities:
         return
-    
-    # Неделя: понедельник - воскресенье (пн-вс)
-    # Если воскресенье = 19.10, то понедельник = 19.10 - 6 дней = 13.10
-    monday_date = sunday_date - timedelta(days=6)
-    
-    print(f"\n📊 Подсчет недельных итогов (пн-вс: {monday_date.strftime('%d.%m')} - {sunday_date.strftime('%d.%m')})...")
-    
-    # Фильтруем активности недели (пн-вс)
+
+    # Неделя: суббота - пятница (сб-пт)
+    # Если воскресенье = 19.10, то суббота (начало недели) = 18.10, пятница (конец) = 24.10
+    saturday_date = sunday_date - timedelta(days=1)  # Суббота = воскресенье - 1
+    friday_date = saturday_date + timedelta(days=6)  # Пятница = суббота + 6
+
+    print(f"\n📊 Подсчет недельных итогов (сб-пт: {saturday_date.strftime('%d.%m')} - {friday_date.strftime('%d.%m')})...")
+
+    # Фильтруем активности недели (сб-пт)
     week_filtered_activities = []
     for activity in week_activities:
         start_time_str = activity.get('startTimeLocal', '')
         if start_time_str:
             activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if monday_date <= activity_date <= sunday_date:
+            if saturday_date <= activity_date <= friday_date:
                 week_filtered_activities.append(activity)
     
     # Разделяем по типам
@@ -454,8 +465,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
         saturday_date = week_start_date - timedelta(days=1)
         print(f"\n📅 Суббота (Вел длинная + бег брик) - {saturday_date.strftime('%d.%m.%y')}")
         
-        # Получаем тренировки за субботу
-        saturday_activities = get_activities_for_date(garmin_client, saturday_date)
+        # Получаем тренировки за субботу (используем week_activities для оптимизации)
+        saturday_activities = get_activities_for_date(garmin_client, saturday_date, week_activities)
         
         if saturday_activities:
             # Разделяем по типам
@@ -568,8 +579,8 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
         
         print(f"\n📅 {name} - {date_str}")
         
-        # Получаем тренировки за эту дату
-        activities = get_activities_for_date(garmin_client, date_obj)
+        # Получаем тренировки за эту дату (используем week_activities для оптимизации)
+        activities = get_activities_for_date(garmin_client, date_obj, week_activities)
         
         if not activities:
             print(f"  ℹ️  Нет тренировок в Garmin за {date_str}")
@@ -922,20 +933,22 @@ def parse_week_dates_from_block_rows(worksheet):
 
 def find_column_for_date(activity_date, sunday_columns):
     """Находит столбец для записи данных на основе даты тренировки
-    
-    Неделя: понедельник - воскресенье (пн-вс)
-    Если тренировка 15.10, а воскресенье = 19.10, то понедельник = 13.10
-    Значит тренировка 15.10 попадает в неделю 13.10-19.10
+
+    Неделя: суббота - пятница (сб-пт)
+    Если тренировка 25.10, а воскресенье = 26.10, то суббота = 25.10, пятница = 31.10
+    Значит тренировка 25.10 попадает в неделю 25.10-31.10
     """
     # Ищем подходящий столбец по воскресенью
     for col_letter, sunday_date in sunday_columns.items():
-        # Понедельник = воскресенье - 6 дней
-        monday_date = sunday_date - timedelta(days=6)
-        
-        # Проверяем попадает ли тренировка в неделю пн-вс
-        if monday_date <= activity_date <= sunday_date:
+        # Суббота = воскресенье - 1 день (начало недели)
+        saturday_date = sunday_date - timedelta(days=1)
+        # Пятница = суббота + 6 дней (конец недели)
+        friday_date = saturday_date + timedelta(days=6)
+
+        # Проверяем попадает ли тренировка в неделю сб-пт
+        if saturday_date <= activity_date <= friday_date:
             return col_letter
-    
+
     return None
 
 def export_all_data_to_source(garmin, sheet):

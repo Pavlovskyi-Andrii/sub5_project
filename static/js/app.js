@@ -7,6 +7,7 @@ let charts = {};
 document.addEventListener('DOMContentLoaded', function() {
     initializeTabs();
     initializeSyncButton();
+    initializeGoogleSheetsSyncButton();
     initializeFilters();
     loadDashboardData();
 
@@ -73,6 +74,41 @@ function initializeSyncButton() {
         } finally {
             this.classList.remove('syncing');
             this.innerHTML = '<i class="fas fa-sync"></i> Синхронизировать';
+            this.disabled = false;
+        }
+    });
+}
+
+// Google Sheets Sync Button
+function initializeGoogleSheetsSyncButton() {
+    const syncGoogleSheetsBtn = document.getElementById('syncGoogleSheetsBtn');
+
+    syncGoogleSheetsBtn.addEventListener('click', async function() {
+        if (this.classList.contains('syncing')) {
+            return; // Prevent multiple clicks
+        }
+
+        this.classList.add('syncing');
+        this.innerHTML = '<i class="fas fa-table fa-spin"></i> Синхронизация...';
+        this.disabled = true;
+
+        try {
+            const response = await axios.post('/api/sync-google-sheets');
+
+            if (response.data.status === 'started') {
+                showNotification('Синхронизация с Google Таблицей запущена', 'success');
+
+                // Wait a bit and reload data
+                setTimeout(() => {
+                    loadDashboardData();
+                }, 3000);
+            }
+        } catch (error) {
+            console.error('Google Sheets sync error:', error);
+            showNotification('Ошибка синхронизации с Google Таблицей: ' + (error.response?.data?.message || error.message), 'error');
+        } finally {
+            this.classList.remove('syncing');
+            this.innerHTML = '<i class="fas fa-table"></i> Синхронизировать Google Таблицу';
             this.disabled = false;
         }
     });

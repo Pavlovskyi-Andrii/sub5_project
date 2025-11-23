@@ -243,8 +243,20 @@ def sync_data():
         # Run sync in background thread
         thread = threading.Thread(target=perform_sync)
         thread.start()
-        
+
         return jsonify({'status': 'started', 'message': 'Синхронизация запущена в фоновом режиме'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/sync-google-sheets', methods=['POST'])
+def sync_google_sheets_only():
+    """Trigger Google Sheets synchronization only (without Garmin sync)"""
+    try:
+        # Run sync in background thread
+        thread = threading.Thread(target=perform_google_sheets_sync)
+        thread.start()
+
+        return jsonify({'status': 'started', 'message': 'Синхронизация с Google Таблицей запущена'})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
@@ -252,14 +264,17 @@ def perform_sync():
     """Perform the actual synchronization"""
     try:
         logger.info("Starting synchronization...")
-        
+
         # Connect to Garmin
         garmin = connect_to_garmin()
-        
-        # Get activities
+
+        # Get activities (увеличили лимит для надежности)
         days = int(os.getenv('DAYS_TO_SYNC', '14'))
-        activities = garmin.get_activities(0, days * 2)
-        
+        # Берем больше тренировок, чтобы охватить весь период
+        # Обычно 5-10 тренировок в неделю, за 14 дней это ~20-40 тренировок
+        # Увеличиваем до 200 для надежности
+        activities = garmin.get_activities(0, 200)
+
         activities_saved = 0
         for activity in activities:
             try:
@@ -267,26 +282,167 @@ def perform_sync():
                 activity_id = activity['activityId']
                 details = garmin.get_activity(activity_id)
                 summary = details.get('summaryDTO', {})
-                
+
                 # Merge data
                 activity_full = {**activity, **summary}
-                
+
                 # Save to database
                 save_activity_to_db(activity_full)
                 activities_saved += 1
             except Exception as e:
                 logger.error(f"Error saving activity {activity.get('activityName')}: {e}")
-        
+
         # Calculate weekly stats
         calculate_and_save_weekly_stats()
-        
+
+        # Sync to Google Sheets
+        try:
+            logger.info("Starting Google Sheets synchronization...")
+            sync_to_google_sheets(garmin, activities)
+            logger.info("Google Sheets synchronization complete.")
+        except Exception as e:
+            logger.error(f"Google Sheets sync failed: {e}")
+            # Continue even if Google Sheets sync fails
+
         # Log successful sync
         log_sync('success', activities_saved, details={'days_synced': days})
         logger.info(f"Synchronization complete. Saved {activities_saved} activities.")
-        
+
     except Exception as e:
         logger.error(f"Sync failed: {e}")
         log_sync('error', 0, str(e))
+
+def perform_google_sheets_sync():
+    """Perform Google Sheets synchronization using data from database"""
+    try:
+        logger.info("Starting Google Sheets synchronization from database...")
+
+        # Get activities from database
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Get recent activities (last 30 days to cover multiple weeks)
+        cursor.execute('''
+            SELECT data FROM activities
+            WHERE date >= date('now', '-30 days')
+            ORDER BY date DESC
+        ''')
+
+        activities = []
+        for row in cursor.fetchall():
+            if row[0]:
+                activity_data = json.loads(row[0])
+                activities.append(activity_data)
+
+        conn.close()
+
+        if not activities:
+            logger.warning("No activities found in database to sync")
+            log_sync('error', 0, 'No activities in database')
+            return
+
+        logger.info(f"Found {len(activities)} activities in database")
+
+        # Connect to Garmin (needed for sync_to_sheet function)
+        garmin = connect_to_garmin()
+
+        # Sync to Google Sheets
+        sync_to_google_sheets(garmin, activities)
+
+        # Log successful sync
+        log_sync('success', len(activities), details={'source': 'database', 'type': 'google_sheets_only'})
+        logger.info(f"Google Sheets synchronization complete. Synced {len(activities)} activities.")
+
+    except Exception as e:
+        logger.error(f"Google Sheets sync failed: {e}")
+        log_sync('error', 0, str(e))
+
+def sync_to_google_sheets(garmin, activities):
+    """Sync data to Google Sheets using logic from main.py"""
+    from datetime import datetime, timedelta
+    from main import (
+        parse_week_dates_from_block_rows,
+        find_column_for_date,
+        get_training_blocks,
+        sync_to_sheet
+    )
+
+    # Connect to Google Sheets
+    logger.info("Connecting to Google Sheets...")
+    sheet = connect_to_google_sheets()
+    worksheet = sheet.worksheet("ВЕЛ БЕГ")
+    logger.info("Connected to worksheet: ВЕЛ БЕГ")
+
+    # Parse week dates from block rows
+    logger.info("Parsing week dates from row 20...")
+    week_columns = parse_week_dates_from_block_rows(worksheet)
+    logger.info(f"Found {len(week_columns)} weeks in spreadsheet:")
+    for col, date in sorted(week_columns.items()):
+        saturday = date - timedelta(days=1)
+        friday = saturday + timedelta(days=6)
+        logger.info(f"  Column {col}: {saturday.strftime('%d.%m.%Y')} (Sat) - {friday.strftime('%d.%m.%Y')} (Fri)")
+
+    # Group activities by week
+    logger.info(f"Grouping {len(activities)} activities by week...")
+    activities_by_week = {}
+    activities_without_column = []
+
+    for activity in activities:
+        if not isinstance(activity, dict):
+            continue
+
+        start_time = activity.get('startTimeLocal', '')
+        if start_time:
+            activity_date = datetime.strptime(start_time[:10], '%Y-%m-%d').date()
+            activity_name = activity.get('activityName', 'No name')
+            activity_type = activity.get('activityType', {}).get('typeKey', 'unknown')
+
+            column = find_column_for_date(activity_date, week_columns)
+
+            if column:
+                if column not in activities_by_week:
+                    activities_by_week[column] = []
+                activities_by_week[column].append(activity)
+                logger.info(f"  ✓ {activity_date.strftime('%d.%m.%Y')}: {activity_name[:40]} → Column {column}")
+            else:
+                activities_without_column.append({
+                    'date': activity_date,
+                    'name': activity_name,
+                    'type': activity_type
+                })
+                logger.warning(f"  ✗ {activity_date.strftime('%d.%m.%Y')}: {activity_name[:40]} → NO COLUMN FOUND")
+
+    if activities_without_column:
+        logger.warning(f"WARNING: {len(activities_without_column)} activities without column:")
+        for act in activities_without_column[:5]:
+            logger.warning(f"  - {act['date'].strftime('%d.%m.%Y')}: {act['name'][:40]}")
+
+    # Sync all weeks with activities
+    if activities_by_week:
+        logger.info(f"Syncing {len(activities_by_week)} weeks to Google Sheets...")
+
+        # Get training blocks once for optimization
+        training_blocks = get_training_blocks(worksheet)
+
+        # Sort columns by date
+        sorted_columns = sorted(activities_by_week.keys(),
+                              key=lambda col: week_columns.get(col, datetime.min.date()))
+
+        for column in sorted_columns:
+            week_activities = activities_by_week[column]
+            week_date = week_columns.get(column)
+
+            logger.info(f"Syncing column {column}: {len(week_activities)} activities ({week_date.strftime('%d.%m.%Y') if week_date else 'unknown'})")
+
+            # Sync to sheet
+            sync_to_sheet(garmin, worksheet, column,
+                        week_start_date=week_date,
+                        training_blocks=training_blocks,
+                        week_activities=week_activities)
+
+            logger.info(f"✓ Column {column} synced successfully")
+    else:
+        logger.warning("No activities to sync to Google Sheets!")
 
 def calculate_and_save_weekly_stats():
     """Calculate and save weekly statistics"""
