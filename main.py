@@ -322,20 +322,20 @@ def calculate_weekly_totals(garmin_client, week_activities, sunday_date, batch, 
     if not sunday_date or not week_activities:
         return
 
-    # Неделя: суббота - пятница (сб-пт)
-    # Если воскресенье = 19.10, то суббота (начало недели) = 18.10, пятница (конец) = 24.10
+    # Неделя: ПОНЕДЕЛЬНИК - СУББОТА (пн-сб)
+    # Если воскресенье = 23.11, то суббота = 22.11, понедельник = 17.11
     saturday_date = sunday_date - timedelta(days=1)  # Суббота = воскресенье - 1
-    friday_date = saturday_date + timedelta(days=6)  # Пятница = суббота + 6
+    monday_date = sunday_date - timedelta(days=6)    # Понедельник = воскресенье - 6
 
-    print(f"\n📊 Подсчет недельных итогов (сб-пт: {saturday_date.strftime('%d.%m')} - {friday_date.strftime('%d.%m')})...")
+    print(f"\n📊 Подсчет недельных итогов (пн-сб: {monday_date.strftime('%d.%m')} - {saturday_date.strftime('%d.%m')})...")
 
-    # Фильтруем активности недели (сб-пт)
+    # Фильтруем активности недели (пн-сб)
     week_filtered_activities = []
     for activity in week_activities:
         start_time_str = activity.get('startTimeLocal', '')
         if start_time_str:
             activity_date = datetime.strptime(start_time_str.split()[0], '%Y-%m-%d').date()
-            if saturday_date <= activity_date <= friday_date:
+            if monday_date <= activity_date <= saturday_date:
                 week_filtered_activities.append(activity)
     
     # Разделяем по типам
@@ -527,20 +527,38 @@ def sync_to_sheet(garmin_client, worksheet, column, week_start_date=None, traini
                     distance_km = round(distance / 1000, 2)
                     batch.add_update(13, col_index + 1, str(distance_km))
                     print(f"  ✓ Бег брик км: {distance_km} → {column}13")
-                
+                else:
+                    batch.add_update(13, col_index + 1, "—")
+
                 avg_speed = run.get('averageSpeed')
                 if avg_speed:
                     pace_str = format_pace(avg_speed)
                     if pace_str:
                         batch.add_update(14, col_index + 1, pace_str)
                         print(f"  ✓ Бег брик темп: {pace_str} → {column}14")
-                
+                    else:
+                        batch.add_update(14, col_index + 1, "—")
+                else:
+                    batch.add_update(14, col_index + 1, "—")
+
                 avg_hr = run.get('averageHR')
                 if avg_hr:
                     batch.add_update(15, col_index + 1, str(int(avg_hr)))
                     print(f"  ✓ Бег брик ЧСС: {int(avg_hr)} → {column}15")
+                else:
+                    batch.add_update(15, col_index + 1, "—")
+            else:
+                # Нет беговой тренировки - ставим прочерки
+                batch.add_update(13, col_index + 1, "—")
+                batch.add_update(14, col_index + 1, "—")
+                batch.add_update(15, col_index + 1, "—")
+                print(f"  ℹ️  Нет брик-бега в субботу → ставим прочерки в строках 13-15")
         else:
-            print(f"  ℹ️  Нет тренировок за субботу {week_start_date.strftime('%d.%m.%y')}")
+            print(f"  ℹ️  Нет тренировок за субботу {saturday_date.strftime('%d.%m.%y')}")
+            # Ставим прочерки если нет тренировок вообще
+            batch.add_update(13, col_index + 1, "—")
+            batch.add_update(14, col_index + 1, "—")
+            batch.add_update(15, col_index + 1, "—")
     
     # Используем переданные блоки тренировок или получаем их (для совместимости)
     blocks = training_blocks if training_blocks is not None else get_training_blocks(worksheet)
