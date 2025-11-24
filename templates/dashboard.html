@@ -118,6 +118,21 @@
         <div class="tab-content">
             <!-- Overview Tab -->
             <div id="overview" class="tab-pane active">
+                <!-- Weekly Calendar Section -->
+                <div class="weekly-calendar-section">
+                    <div class="section-header">
+                        <h2>Недельный календарь тренировок</h2>
+                        <div class="week-navigation">
+                            <button id="prevWeekDash" class="btn btn-secondary">← Пред.</button>
+                            <button id="currentWeekDash" class="btn btn-secondary">Текущая</button>
+                            <button id="nextWeekDash" class="btn btn-secondary">След. →</button>
+                        </div>
+                    </div>
+                    <div id="weeklyCalendarContainer">
+                        <div class="loading-calendar">Загрузка календаря...</div>
+                    </div>
+                </div>
+
                 <div class="charts-grid">
                     <div class="chart-container">
                         <h3>Недельный объем тренировок</h3>

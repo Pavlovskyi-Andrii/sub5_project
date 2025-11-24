@@ -664,3 +664,264 @@ function showNotification(message, type = 'info') {
         }, 5000);
     }
 }
+
+// ============================================
+// Weekly Calendar Functions (Dashboard Integration)
+// ============================================
+
+let currentWeekStartDash = null;
+
+// Helper functions for weekly calendar
+function formatDuration(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return hours > 0 ? `${hours}ч ${minutes}м` : `${minutes}м`;
+}
+
+function formatDistance(km) {
+    return km ? `${km.toFixed(1)} км` : '-';
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'cycling': '🚴',
+        'running': '🏃',
+        'swimming': '🏊',
+        'indoor_cycling': '🚴',
+        'road_biking': '🚴',
+        'trail_running': '🏃',
+        'treadmill_running': '🏃'
+    };
+    return icons[type] || '💪';
+}
+
+function getActivityColorClass(type) {
+    if (type.includes('cycling') || type.includes('biking')) return 'cycling';
+    if (type.includes('running')) return 'running';
+    if (type.includes('swimming')) return 'swimming';
+    return 'cycling';
+}
+
+function formatDayName(dateStr) {
+    const date = new Date(dateStr);
+    const days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+    return days[date.getDay() === 0 ? 6 : date.getDay() - 1];
+}
+
+function formatDateShort(dateStr) {
+    const date = new Date(dateStr);
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+function createHRZonesVisualization(hrZones) {
+    if (!hrZones || hrZones.length === 0) {
+        return '<div class="week-hr-zones-label">Нет данных о зонах</div>';
+    }
+
+    const maxTime = Math.max(...hrZones.map(z => z.secsInZone));
+
+    let html = '<div class="week-hr-zones">';
+    html += '<div class="week-hr-zones-label">Зоны пульса</div>';
+    html += '<div class="week-hr-zones-bars">';
+
+    hrZones.forEach(zone => {
+        const height = maxTime > 0 ? (zone.secsInZone / maxTime) * 100 : 0;
+        const minutes = Math.floor(zone.secsInZone / 60);
+        const seconds = Math.floor(zone.secsInZone % 60);
+
+        html += `
+            <div class="week-hr-zone-bar zone-${zone.zoneNumber}" style="height: ${height}%">
+                <div class="week-hr-zone-tooltip">
+                    Z${zone.zoneNumber}: ${minutes}м ${seconds}с
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div></div>';
+    return html;
+}
+
+function createActivityCardDash(activity) {
+    const iconClass = getActivityColorClass(activity.type);
+    const icon = getActivityIcon(activity.type);
+
+    let statsHtml = '<div class="week-activity-stats">';
+    
+    if (activity.distance) {
+        statsHtml += `
+            <div class="week-stat-item">
+                <div class="week-stat-label">Дистанция</div>
+                <div class="week-stat-value">${formatDistance(activity.distance)}</div>
+            </div>`;
+    }
+    
+    if (activity.avg_hr) {
+        statsHtml += `
+            <div class="week-stat-item">
+                <div class="week-stat-label">Ср. пульс</div>
+                <div class="week-stat-value">${Math.round(activity.avg_hr)} bpm</div>
+            </div>`;
+    }
+    
+    if (activity.avg_power) {
+        statsHtml += `
+            <div class="week-stat-item">
+                <div class="week-stat-label">Ср. мощность</div>
+                <div class="week-stat-value">${Math.round(activity.avg_power)} W</div>
+            </div>`;
+    }
+    
+    if (activity.tss) {
+        statsHtml += `
+            <div class="week-stat-item">
+                <div class="week-stat-label">TSS</div>
+                <div class="week-stat-value">${Math.round(activity.tss)}</div>
+            </div>`;
+    }
+    
+    statsHtml += '</div>';
+
+    return `
+        <div class="week-activity-card">
+            <div class="week-activity-header">
+                <div class="week-activity-icon ${iconClass}">${icon}</div>
+                <div class="week-activity-title">
+                    <div class="week-activity-duration">${formatDuration(activity.duration)}</div>
+                    <div class="week-activity-name">${activity.name}</div>
+                </div>
+            </div>
+            ${statsHtml}
+            ${createHRZonesVisualization(activity.hr_zones)}
+        </div>
+    `;
+}
+
+function renderWeeklyCalendarDash(data) {
+    let html = '<div class="week-calendar-grid">';
+
+    data.days.forEach(day => {
+        let summaryHtml = '<div class="week-day-summary">';
+        
+        if (day.summary.total_duration) {
+            summaryHtml += `
+                <div class="week-day-summary-item">
+                    ⏱ ${formatDuration(day.summary.total_duration)}
+                </div>`;
+        }
+        
+        if (day.summary.avg_hr) {
+            summaryHtml += `
+                <div class="week-day-summary-item">
+                    ♥ ${Math.round(day.summary.avg_hr)} bpm
+                </div>`;
+        }
+        
+        if (day.summary.total_distance) {
+            summaryHtml += `
+                <div class="week-day-summary-item">
+                    📏 ${day.summary.total_distance} км
+                </div>`;
+        }
+        
+        summaryHtml += '</div>';
+
+        const activitiesHtml = day.activities.length > 0
+            ? day.activities.map(activity => createActivityCardDash(activity)).join('')
+            : '<div style="text-align: center; color: var(--text-secondary); padding: 20px; font-size: 11px;">Нет тренировок</div>';
+
+        html += `
+            <div class="week-day-column">
+                <div class="week-day-header">
+                    <div class="week-day-name">${formatDayName(day.date)}</div>
+                    <div class="week-day-date">${formatDateShort(day.date)}</div>
+                    ${summaryHtml}
+                </div>
+                <div class="week-day-activities">
+                    ${activitiesHtml}
+                </div>
+            </div>
+        `;
+    });
+
+    html += '</div>';
+    document.getElementById('weeklyCalendarContainer').innerHTML = html;
+}
+
+async function loadWeeklyCalendarDash(weekStart) {
+    try {
+        const container = document.getElementById('weeklyCalendarContainer');
+        if (!container) return;
+
+        container.innerHTML = '<div class="loading-calendar">Загрузка календаря...</div>';
+
+        const url = weekStart
+            ? `/api/weekly-calendar?week_start=${weekStart}`
+            : '/api/weekly-calendar';
+
+        const response = await axios.get(url);
+
+        if (response.data.error) {
+            throw new Error(response.data.error);
+        }
+
+        currentWeekStartDash = response.data.week_start;
+        renderWeeklyCalendarDash(response.data);
+    } catch (error) {
+        console.error('Error loading weekly calendar:', error);
+        const container = document.getElementById('weeklyCalendarContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="calendar-error">
+                    <strong>Ошибка загрузки календаря:</strong><br>
+                    ${error.message}
+                </div>
+            `;
+        }
+    }
+}
+
+function getDateString(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function navigateWeekDash(offset) {
+    if (!currentWeekStartDash) return;
+
+    const date = new Date(currentWeekStartDash);
+    date.setDate(date.getDate() + (offset * 7));
+    loadWeeklyCalendarDash(getDateString(date));
+}
+
+// Initialize weekly calendar when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initWeeklyCalendar);
+} else {
+    initWeeklyCalendar();
+}
+
+function initWeeklyCalendar() {
+    if (document.getElementById('weeklyCalendarContainer')) {
+        loadWeeklyCalendarDash();
+    }
+
+    const prevWeekBtn = document.getElementById('prevWeekDash');
+    const nextWeekBtn = document.getElementById('nextWeekDash');
+    const currentWeekBtn = document.getElementById('currentWeekDash');
+
+    if (prevWeekBtn) {
+        prevWeekBtn.addEventListener('click', () => navigateWeekDash(-1));
+    }
+
+    if (nextWeekBtn) {
+        nextWeekBtn.addEventListener('click', () => navigateWeekDash(1));
+    }
+
+    if (currentWeekBtn) {
+        currentWeekBtn.addEventListener('click', () => loadWeeklyCalendarDash());
+    }
+}
