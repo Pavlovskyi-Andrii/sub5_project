@@ -163,13 +163,38 @@ def weekly_calendar():
     """Weekly calendar view"""
     return render_template('weekly_calendar.html')
 
+@app.route('/performance/assets/<path:filename>')
+def performance_assets(filename):
+    """Serve static assets for Performance page"""
+    from flask import send_from_directory
+    import os
+    return send_from_directory(os.path.join('static', 'performance', 'assets'), filename)
+
+@app.route('/performance/favicon.ico')
+def performance_favicon():
+    """Serve favicon for Performance page"""
+    from flask import send_from_directory
+    return send_from_directory('static/performance', 'favicon.ico')
+
+@app.route('/performance/placeholder.svg')
+def performance_placeholder():
+    """Serve placeholder.svg for Performance page"""
+    from flask import send_from_directory
+    return send_from_directory('static/performance', 'placeholder.svg')
+
+@app.route('/performance/robots.txt')
+def performance_robots():
+    """Serve robots.txt for Performance page"""
+    from flask import send_from_directory
+    return send_from_directory('static/performance', 'robots.txt')
+
 @app.route('/performance')
 @app.route('/performance/')
 @app.route('/performance/<path:path>')
 def performance(path=''):
     """Performance analytics page (React SPA)"""
     from flask import send_from_directory
-    # For SPA routing, always serve index.html
+    # For SPA routing, always serve index.html for all other paths
     return send_from_directory('static/performance', 'index.html')
 
 @app.route('/api/activities')
