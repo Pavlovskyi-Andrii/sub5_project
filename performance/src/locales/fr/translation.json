@@ -1,11 +1,11 @@
 {
-  "app_title": "MicCoach Lab",
+  "app_title": "SUB5 Lab",
   "app_subtitle_cycling": "Cyclisme",
   "app_subtitle_running": "Course à pied",
   "nav_cycling": "Cyclisme",
   "nav_running": "Course à pied",
   "nav_wiki": "Wiki",
-  "tooltip_wiki": "Wiki MicCoach Lab",
+  "tooltip_wiki": "Wiki SUB5 Lab",
   "close": "Fermer",
   "language": "Langue",
   "common": {
@@ -271,8 +271,8 @@
     }
   },
   "wiki": {
-    "title": "Wiki MicCoach Lab: Glossaire des Performances",
-    "intro": "Bienvenue dans votre laboratoire de performance ! Vous trouverez ici des explications claires et basées sur des preuves scientifiques des termes et des modèles avancés que MicCoach Lab utilise pour analyser vos performances.",
+    "title": "Wiki SUB5 Lab: Glossaire des Performances",
+    "intro": "Bienvenue dans votre laboratoire de performance ! Vous trouverez ici des explications claires et basées sur des preuves scientifiques des termes et des modèles avancés que SUB5 Lab utilise pour analyser vos performances.",
     "s1": {
       "title": "1. Modèles Physiologiques: La Base de Votre Analyse",
       "intro": "L'application utilise trois modèles mathématiques avancés pour décrire votre relation puissance-durée (en cyclisme) ou vitesse-durée (en course à pied). Chaque modèle se spécialise dans l'analyse d'intervalles de durée spécifiques et s'intègre aux autres pour fournir un tableau physiologique complet et précis.",
@@ -291,7 +291,7 @@
         "weaknesses": [
           "Non précis pour les efforts très courts (< 2 minutes) ou de longue durée (> 15 minutes), où il peut conduire à des prédictions irréalistes ou moins précises [Drake et al., 2024]"
         ],
-        "integration": "<strong>Comment MicCoach Lab l'Intègre:</strong> L'application utilise ce modèle pour calculer votre <strong>CP/CS</strong> et votre <strong>W'</strong>, et pour prédire les performances dans une gamme de durées moyennes, typiquement entre 2 et 15 minutes (ex. 5 min, 10 min en cyclisme, ou tests comme 1500m-3000m en course à pied)."
+        "integration": "<strong>Comment SUB5 Lab l'Intègre:</strong> L'application utilise ce modèle pour calculer votre <strong>CP/CS</strong> et votre <strong>W'</strong>, et pour prédire les performances dans une gamme de durées moyennes, typiquement entre 2 et 15 minutes (ex. 5 min, 10 min en cyclisme, ou tests comme 1500m-3000m en course à pied)."
       },
       "apr": {
         "title": "1.2. Modèle APR (Réserve de Puissance Anaérobie)",
@@ -312,7 +312,7 @@
           "Non conçu pour les efforts de longue durée (> 5-8 minutes), où d'autres modèles sont plus appropriés",
           "Nécessite des données de qualité pour les efforts très courts pour une estimation précise du paramètre k"
         ],
-        "integration": "<strong>Comment MicCoach Lab l'Intègre:</strong> L'application utilise ce modèle pour calculer votre <strong>Pmax</strong>, <strong>MAP</strong>, <strong>APR</strong> et le paramètre <strong>k</strong>, fournissant des prédictions précises pour les efforts de 1 seconde à ~5 minutes et permettant une analyse complète de votre profil neuromusculaire et anaérobie."
+        "integration": "<strong>Comment SUB5 Lab l'Intègre:</strong> L'application utilise ce modèle pour calculer votre <strong>Pmax</strong>, <strong>MAP</strong>, <strong>APR</strong> et le paramètre <strong>k</strong>, fournissant des prédictions précises pour les efforts de 1 seconde à ~5 minutes et permettant une analyse complète de votre profil neuromusculaire et anaérobie."
       },
       "power_law": {
         "title": "1.3. Modèle Power Law (S/E)",
@@ -331,7 +331,7 @@
           "Les paramètres S et E, bien que prédictifs, ont une signification physiologique moins directe par rapport aux modèles CP/W' et APR",
           "Peut être moins précis pour les efforts très courts (< 30 secondes) par rapport au modèle APR spécifiquement calibré pour cette zone"
         ],
-        "integration": "<strong>Comment MicCoach Lab l'Intègre:</strong> L'application utilise ce modèle comme \"épine dorsale\" pour l'analyse d'endurance à long terme, l'estimation des zones d'entraînement (via LT1), les prédictions de performance pour les courses longues (ex. semi-marathons, marathons), et pour caractériser votre phénotype individuel de résistance à la fatigue."
+        "integration": "<strong>Comment SUB5 Lab l'Intègre:</strong> L'application utilise ce modèle comme \"épine dorsale\" pour l'analyse d'endurance à long terme, l'estimation des zones d'entraînement (via LT1), les prédictions de performance pour les courses longues (ex. semi-marathons, marathons), et pour caractériser votre phénotype individuel de résistance à la fatigue."
         }
       },
       "s2": {
@@ -393,7 +393,7 @@
       },
       "s3": {
         "title": "3. Formules Appliquées : Le Cœur des Calculs",
-        "intro": "MicCoach Lab utilise ces formules pour prédire vos performances :",
+        "intro": "SUB5 Lab utilise ces formules pour prédire vos performances :",
         "cp_w_formula": {
           "title": "3.1. Modèle CP/W' (Puissance ou Vitesse dans le Temps)",
           "formula": "Puissance(t) = CP + W' / t<br/>Vitesse(t) = CS + D' / t"
@@ -409,7 +409,7 @@
       },
       "s4": {
         "title": "4. Scores des Cartes et du Graphique Radar : Votre Évaluation d'Athlète",
-        "intro": "MicCoach Lab transforme vos données brutes en un système de scores intuitif, similaire aux jeux vidéo, pour vous donner un aperçu immédiat de votre force dans différents domaines.",
+        "intro": "SUB5 Lab transforme vos données brutes en un système de scores intuitif, similaire aux jeux vidéo, pour vous donner un aperçu immédiat de votre force dans différents domaines.",
         "calculations": {
           "title": "4.1. Calcul des Scores pour les Statistiques Individuelles",
           "what_are": "<strong>Ce qu'ils sont :</strong> Vos W/kg (cyclisme) ou vos temps (course) sont comparés à des références de référence (records du monde pour la course, athlètes d'élite pour le cyclisme). Ces références proviennent de vastes bases de données d'athlètes [Rod Siegel email].",
@@ -456,13 +456,13 @@
         },
         "athlete_profile": {
           "title": "4.5. Profil Athlète",
-          "what_is": "<strong>Ce que c'est :</strong> MicCoach Lab analyse la \"forme\" de votre courbe de scores pour identifier votre spécialisation principale (ex. SPRINTEUR, GRIMPEUR, MARATHONIEN) ou pour reconnaître si vous êtes un \"POLYVALENT\" (Cyclisme) / \"ATHLÈTE COMPLET\" (Course).",
+          "what_is": "<strong>Ce que c'est :</strong> SUB5 Lab analyse la \"forme\" de votre courbe de scores pour identifier votre spécialisation principale (ex. SPRINTEUR, GRIMPEUR, MARATHONIEN) ou pour reconnaître si vous êtes un \"POLYVALENT\" (Cyclisme) / \"ATHLÈTE COMPLET\" (Course).",
           "how_works": "<strong>Comment ça fonctionne :</strong> L'algorithme compare vos scores dans différents domaines et identifie celui où vous excellez le plus. S'il n'y a pas de dominance claire (différence < 10 points entre le maximum et le minimum), vous êtes classé comme \"polyvalent\"."
         }
       },
       "s5": {
         "title": "5. Bibliographie et Références Scientifiques",
-        "intro": "MicCoach Lab se base sur des recherches scientifiques de pointe :",
+        "intro": "SUB5 Lab se base sur des recherches scientifiques de pointe :",
         "references": [
           "Monod, H. & Scherrer, J. (1965). The work capacity of a synergic muscular group. Ergonomics, 8(3), 329-338.",
           "Moritani, T., Nagata, A., deVries, H. A., & Muro, M. (1981). Critical power as a measure of physical work capacity and anaerobic threshold. Ergonomics, 24(5), 339-350.",
@@ -661,7 +661,7 @@
     "brand": "MicCoach Performance",
     "copyright": "© 2024 - Michael Pesse. Tous droits réservés.",
     "tagline": "La science au service de votre passion.",
-    "support_button": "☕ Soutenez MicCoach Lab",
+    "support_button": "☕ Soutenez SUB5 Lab",
     "support_description": "Votre soutien aide à couvrir les coûts d'hébergement et de développement."
   }
 }
