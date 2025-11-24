@@ -115,13 +115,13 @@ function initializeGoogleSheetsSyncButton() {
     });
 }
 
-// Google Sheets FULL Sync Button (from 13.09.2025)
+// Google Sheets FULL Sync Button (from 13.09.2024)
 function initializeGoogleSheetsFullSyncButton() {
     const syncGoogleSheetsFullBtn = document.getElementById('syncGoogleSheetsFullBtn');
 
     syncGoogleSheetsFullBtn.addEventListener('click', async function() {
         // Show confirmation dialog
-        if (!confirm('Вы уверены что хотите обновить всю таблицу с 13.09.2025? Это может занять несколько минут.')) {
+        if (!confirm('Вы уверены что хотите обновить всю таблицу с 13.09.2024? Это может занять несколько минут.')) {
             return;
         }
 
@@ -149,7 +149,7 @@ function initializeGoogleSheetsFullSyncButton() {
             showNotification('Ошибка полной синхронизации: ' + (error.response?.data?.message || error.message), 'error');
         } finally {
             this.classList.remove('syncing');
-            this.innerHTML = '<i class="fas fa-sync-alt"></i> Обновить всю таблицу (с 13.09.2025)';
+            this.innerHTML = '<i class="fas fa-sync-alt"></i> Обновить всю таблицу (с 13.09.2024)';
             this.disabled = false;
         }
     });

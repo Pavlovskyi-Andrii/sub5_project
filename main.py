@@ -275,6 +275,28 @@ def process_running_data(garmin_client, activity):
         'hr': f"{int(avg_hr)} уд./мин" if avg_hr else ''
     }
 
+def get_activity_hr_zones(garmin_client, activity_id):
+    """Получить данные о зонах пульса для тренировки
+
+    Args:
+        garmin_client: Клиент Garmin
+        activity_id: ID тренировки
+
+    Returns:
+        list: Список зон с временем в каждой зоне
+        Example: [
+            {"zoneNumber": 1, "secsInZone": 84.933, "zoneLowBoundary": 97},
+            {"zoneNumber": 2, "secsInZone": 199.296, "zoneLowBoundary": 116},
+            ...
+        ]
+    """
+    try:
+        hr_zones = garmin_client.get_activity_hr_in_timezones(activity_id)
+        return hr_zones if hr_zones else []
+    except Exception as e:
+        print(f"Warning: Could not fetch HR zones for activity {activity_id}: {e}")
+        return []
+
 class BatchUpdater:
     """Класс для накопления обновлений и отправки batch запросом"""
     def __init__(self, worksheet):

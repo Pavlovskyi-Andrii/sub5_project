@@ -26,7 +26,8 @@ from main import (
     format_pace,
     process_cycling_data,
     process_running_data,
-    get_training_blocks
+    get_training_blocks,
+    get_activity_hr_zones
 )
 
 load_dotenv()
@@ -63,11 +64,20 @@ def init_db():
             avg_cadence INTEGER,
             tss INTEGER,
             calories INTEGER,
+            hr_zones JSON,
             data JSON,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Add hr_zones column if it doesn't exist (migration)
+    try:
+        cursor.execute('ALTER TABLE activities ADD COLUMN hr_zones JSON')
+        conn.commit()
+    except sqlite3.OperationalError:
+        # Column already exists
+        pass
     
     # Create sync_logs table
     cursor.execute('''
@@ -148,6 +158,11 @@ def index():
     """Main dashboard"""
     return render_template('dashboard.html')
 
+@app.route('/weekly-calendar')
+def weekly_calendar():
+    """Weekly calendar view"""
+    return render_template('weekly_calendar.html')
+
 @app.route('/api/activities')
 def get_activities():
     """Get activities from database"""
@@ -189,6 +204,110 @@ def get_activities():
     
     conn.close()
     return jsonify(activities)
+
+@app.route('/api/weekly-calendar')
+def get_weekly_calendar():
+    """Get weekly calendar view with all activities and HR zones
+
+    Query params:
+        week_start: Start date of the week (YYYY-MM-DD), defaults to current week's Monday
+    """
+    try:
+        # Get week start date from query params or default to current week's Monday
+        week_start_str = request.args.get('week_start')
+        if week_start_str:
+            week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+        else:
+            today = datetime.now().date()
+            # Get Monday of current week (0 = Monday, 6 = Sunday)
+            week_start = today - timedelta(days=today.weekday())
+
+        # Calculate week end (Sunday)
+        week_end = week_start + timedelta(days=6)
+
+        # Connect to Garmin
+        garmin_client = connect_to_garmin()
+        if not garmin_client:
+            return jsonify({'error': 'Failed to connect to Garmin'}), 500
+
+        # Get all activities for the week
+        all_activities = garmin_client.get_activities(0, 200)
+
+        # Structure to hold weekly data
+        weekly_data = {
+            'week_start': week_start.isoformat(),
+            'week_end': week_end.isoformat(),
+            'days': []
+        }
+
+        # Iterate through each day of the week
+        for day_offset in range(7):
+            current_date = week_start + timedelta(days=day_offset)
+            day_activities = get_activities_for_date(garmin_client, current_date, all_activities)
+
+            # Process each activity for the day
+            activities_data = []
+            for activity in day_activities:
+                activity_id = activity['activityId']
+                activity_type = activity.get('activityType', {}).get('typeKey', 'unknown')
+
+                # Get activity details
+                try:
+                    details = garmin_client.get_activity(activity_id)
+                    summary = details.get('summaryDTO', {})
+
+                    # Get HR zones
+                    hr_zones = get_activity_hr_zones(garmin_client, activity_id)
+
+                    # Build activity data
+                    activity_data = {
+                        'id': activity_id,
+                        'name': activity.get('activityName', ''),
+                        'type': activity_type,
+                        'duration': summary.get('duration', 0),
+                        'distance': summary.get('distance', 0) / 1000 if summary.get('distance') else 0,  # Convert to km
+                        'avg_hr': summary.get('averageHR', None),
+                        'max_hr': summary.get('maxHR', None),
+                        'avg_power': summary.get('averagePower', None),
+                        'normalized_power': summary.get('normalizedPower', None),
+                        'avg_cadence': summary.get('averageBikeCadence') or summary.get('averageRunCadence', None),
+                        'tss': summary.get('trainingStressScore', None),
+                        'calories': summary.get('calories', None),
+                        'avg_speed': summary.get('averageSpeed', None),
+                        'hr_zones': hr_zones,
+                        'start_time': activity.get('startTimeLocal', '')
+                    }
+
+                    activities_data.append(activity_data)
+
+                except Exception as e:
+                    logger.error(f"Error processing activity {activity_id}: {e}")
+                    continue
+
+            # Calculate daily summary
+            total_duration = sum(a['duration'] for a in activities_data)
+            total_distance = sum(a['distance'] for a in activities_data)
+            avg_hr = sum(a['avg_hr'] for a in activities_data if a['avg_hr']) / len([a for a in activities_data if a['avg_hr']]) if activities_data else 0
+
+            day_data = {
+                'date': current_date.isoformat(),
+                'day_name': current_date.strftime('%A'),
+                'activities': activities_data,
+                'summary': {
+                    'total_duration': total_duration,
+                    'total_distance': round(total_distance, 2),
+                    'avg_hr': round(avg_hr) if avg_hr else None,
+                    'activity_count': len(activities_data)
+                }
+            }
+
+            weekly_data['days'].append(day_data)
+
+        return jsonify(weekly_data)
+
+    except Exception as e:
+        logger.error(f"Error in weekly calendar endpoint: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/weekly-stats')
 def get_weekly_stats():
@@ -370,26 +489,29 @@ def perform_google_sheets_sync():
         log_sync('error', 0, str(e))
 
 def perform_full_google_sheets_sync():
-    """Perform FULL Google Sheets synchronization from 13.09.2025"""
+    """Perform FULL Google Sheets synchronization from 13.09.2024"""
     try:
-        logger.info("Starting FULL Google Sheets synchronization from 13.09.2025...")
+        logger.info("Starting FULL Google Sheets synchronization from 13.09.2024...")
 
         # Connect to Garmin
         garmin = connect_to_garmin()
 
-        # Получаем ВСЕ тренировки с 13.09.2025
-        # Рассчитываем количество дней с 13.09.2025 до сегодня
-        start_date = datetime(2025, 9, 13).date()
+        # Получаем ВСЕ тренировки с 13.09.2024
+        # Рассчитываем количество дней с 13.09.2024 до сегодня
+        start_date = datetime(2024, 9, 13).date()
         today = datetime.now().date()
         days_diff = (today - start_date).days
 
         logger.info(f"Fetching activities from {start_date.strftime('%d.%m.%Y')} ({days_diff} days)")
 
-        # Получаем тренировки (максимум 500 для надежности)
-        # Обычно ~5-10 тренировок в неделю, за 100 дней это ~70-140 тренировок
-        activities = garmin.get_activities(0, min(500, days_diff * 2))
+        # Получаем тренировки - увеличиваем лимит до 800
+        # За 11 недель (~77 дней) при 7-10 тренировок в неделю = ~77-110 тренировок
+        # Берем с запасом 800 чтобы точно все получить
+        max_activities = max(800, days_diff * 3)
+        logger.info(f"Requesting up to {max_activities} activities from Garmin...")
+        activities = garmin.get_activities(0, max_activities)
 
-        # Фильтруем только те, что с 13.09.2025
+        # Фильтруем только те, что с 13.09.2024
         filtered_activities = []
         for activity in activities:
             if not isinstance(activity, dict):
@@ -400,8 +522,12 @@ def perform_full_google_sheets_sync():
                 activity_date = datetime.strptime(start_time[:10], '%Y-%m-%d').date()
                 if activity_date >= start_date:
                     filtered_activities.append(activity)
+                    logger.info(f"  + Activity: {activity_date.strftime('%d.%m.%Y')} - {activity.get('activityName', 'No name')[:40]}")
 
-        logger.info(f"Found {len(filtered_activities)} activities since {start_date.strftime('%d.%m.%Y')}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Total activities fetched from Garmin: {len(activities)}")
+        logger.info(f"Filtered activities since {start_date.strftime('%d.%m.%Y')}: {len(filtered_activities)}")
+        logger.info(f"{'='*60}\n")
 
         if not filtered_activities:
             logger.warning("No activities found to sync")
@@ -412,7 +538,7 @@ def perform_full_google_sheets_sync():
         sync_to_google_sheets(garmin, filtered_activities)
 
         # Log successful sync
-        log_sync('success', len(filtered_activities), details={'source': 'garmin', 'type': 'full_sync', 'start_date': '13.09.2025'})
+        log_sync('success', len(filtered_activities), details={'source': 'garmin', 'type': 'full_sync', 'start_date': '13.09.2024'})
         logger.info(f"FULL Google Sheets synchronization complete. Synced {len(filtered_activities)} activities.")
 
     except Exception as e:

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Недельный календарь тренировок</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a1929 0%, #1a2332 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .week-navigation {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .week-navigation button {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .week-navigation button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .week-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .day-column {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            min-height: 600px;
+        }
+
+        .day-header {
+            text-align: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .day-name {
+            font-size: 12px;
+            text-transform: uppercase;
+            opacity: 0.6;
+            margin-bottom: 5px;
+        }
+
+        .day-date {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .day-summary {
+            font-size: 11px;
+            margin-top: 8px;
+            opacity: 0.7;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .day-summary-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .activity-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .activity-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .activity-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .activity-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .activity-icon.cycling {
+            background: #2196F3;
+        }
+
+        .activity-icon.running {
+            background: #E57373;
+        }
+
+        .activity-icon.swimming {
+            background: #4FC3F7;
+        }
+
+        .activity-icon.indoor_cycling {
+            background: #1976D2;
+        }
+
+        .activity-title {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .activity-duration {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .activity-name {
+            font-size: 10px;
+            opacity: 0.7;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .activity-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin: 8px 0;
+            font-size: 11px;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-label {
+            opacity: 0.6;
+            font-size: 10px;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            margin-top: 2px;
+        }
+
+        /* HR Zone Visualization */
+        .hr-zones {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .hr-zones-label {
+            font-size: 10px;
+            opacity: 0.6;
+            margin-bottom: 5px;
+        }
+
+        .hr-zones-bars {
+            display: flex;
+            gap: 2px;
+            height: 50px;
+            align-items: flex-end;
+        }
+
+        .hr-zone-bar {
+            flex: 1;
+            border-radius: 3px 3px 0 0;
+            min-height: 3px;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .hr-zone-bar:hover {
+            opacity: 0.8;
+        }
+
+        .hr-zone-bar.zone-1 {
+            background: linear-gradient(to top, #4CAF50, #66BB6A);
+        }
+
+        .hr-zone-bar.zone-2 {
+            background: linear-gradient(to top, #8BC34A, #9CCC65);
+        }
+
+        .hr-zone-bar.zone-3 {
+            background: linear-gradient(to top, #FFC107, #FFD54F);
+        }
+
+        .hr-zone-bar.zone-4 {
+            background: linear-gradient(to top, #FF9800, #FFB74D);
+        }
+
+        .hr-zone-bar.zone-5 {
+            background: linear-gradient(to top, #F44336, #EF5350);
+        }
+
+        .hr-zone-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            margin-bottom: 5px;
+        }
+
+        .hr-zone-bar:hover .hr-zone-tooltip {
+            opacity: 1;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 16px;
+            opacity: 0.7;
+        }
+
+        .error {
+            background: rgba(244, 67, 54, 0.2);
+            border: 1px solid rgba(244, 67, 54, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        /* Responsive design */
+        @media (max-width: 1200px) {
+            .week-grid {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .week-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .week-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Недельный календарь тренировок</h1>
+            <div class="week-navigation">
+                <button id="prevWeek">← Предыдущая</button>
+                <button id="currentWeek">Текущая неделя</button>
+                <button id="nextWeek">Следующая →</button>
+            </div>
+        </div>
+
+        <div id="weekContainer">
+            <div class="loading">Загрузка данных...</div>
+        </div>
+    </div>
+
+    <script>
+        let currentWeekStart = null;
+
+        // Helper functions
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return hours > 0 ? `${hours}ч ${minutes}м` : `${minutes}м`;
+        }
+
+        function formatDistance(km) {
+            return km ? `${km.toFixed(1)} км` : '-';
+        }
+
+        function getActivityIcon(type) {
+            const icons = {
+                'cycling': '🚴',
+                'running': '🏃',
+                'swimming': '🏊',
+                'indoor_cycling': '🚴',
+                'road_biking': '🚴',
+                'trail_running': '🏃',
+                'treadmill_running': '🏃'
+            };
+            return icons[type] || '💪';
+        }
+
+        function getActivityColor(type) {
+            if (type.includes('cycling') || type.includes('biking')) return 'cycling';
+            if (type.includes('running')) return 'running';
+            if (type.includes('swimming')) return 'swimming';
+            return 'cycling';
+        }
+
+        function formatDayName(dateStr) {
+            const date = new Date(dateStr);
+            const days = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС'];
+            return days[date.getDay() === 0 ? 6 : date.getDay() - 1];
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return `${date.getDate()} ${date.toLocaleDateString('ru', { month: 'short' })}`;
+        }
+
+        function createHRZonesVisualization(hrZones) {
+            if (!hrZones || hrZones.length === 0) {
+                return '<div class="hr-zones-label">Нет данных о зонах</div>';
+            }
+
+            // Calculate max time for scaling
+            const maxTime = Math.max(...hrZones.map(z => z.secsInZone));
+
+            let html = '<div class="hr-zones">';
+            html += '<div class="hr-zones-label">Зоны пульса</div>';
+            html += '<div class="hr-zones-bars">';
+
+            hrZones.forEach(zone => {
+                const height = maxTime > 0 ? (zone.secsInZone / maxTime) * 100 : 0;
+                const minutes = Math.floor(zone.secsInZone / 60);
+                const seconds = Math.floor(zone.secsInZone % 60);
+
+                html += `
+                    <div class="hr-zone-bar zone-${zone.zoneNumber}" style="height: ${height}%">
+                        <div class="hr-zone-tooltip">
+                            Zone ${zone.zoneNumber}: ${minutes}м ${seconds}с
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div></div>';
+            return html;
+        }
+
+        function createActivityCard(activity) {
+            const iconClass = getActivityColor(activity.type);
+            const icon = getActivityIcon(activity.type);
+
+            return `
+                <div class="activity-card">
+                    <div class="activity-header">
+                        <div class="activity-icon ${iconClass}">${icon}</div>
+                        <div class="activity-title">
+                            <div class="activity-duration">${formatDuration(activity.duration)}</div>
+                        </div>
+                    </div>
+                    <div class="activity-name">${activity.name}</div>
+
+                    <div class="activity-stats">
+                        ${activity.distance ? `
+                        <div class="stat-item">
+                            <div class="stat-label">Дистанция</div>
+                            <div class="stat-value">${formatDistance(activity.distance)}</div>
+                        </div>
+                        ` : ''}
+                        ${activity.avg_hr ? `
+                        <div class="stat-item">
+                            <div class="stat-label">Ср. пульс</div>
+                            <div class="stat-value">${Math.round(activity.avg_hr)} bpm</div>
+                        </div>
+                        ` : ''}
+                        ${activity.avg_power ? `
+                        <div class="stat-item">
+                            <div class="stat-label">Ср. мощность</div>
+                            <div class="stat-value">${Math.round(activity.avg_power)} W</div>
+                        </div>
+                        ` : ''}
+                        ${activity.tss ? `
+                        <div class="stat-item">
+                            <div class="stat-label">TSS</div>
+                            <div class="stat-value">${Math.round(activity.tss)}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    ${createHRZonesVisualization(activity.hr_zones)}
+                </div>
+            `;
+        }
+
+        function renderWeeklyCalendar(data) {
+            let html = '<div class="week-grid">';
+
+            data.days.forEach(day => {
+                html += `
+                    <div class="day-column">
+                        <div class="day-header">
+                            <div class="day-name">${formatDayName(day.date)}</div>
+                            <div class="day-date">${formatDate(day.date)}</div>
+                            <div class="day-summary">
+                                ${day.summary.total_duration ? `
+                                <div class="day-summary-item">
+                                    ⏱ ${formatDuration(day.summary.total_duration)}
+                                </div>
+                                ` : ''}
+                                ${day.summary.avg_hr ? `
+                                <div class="day-summary-item">
+                                    ♥ ${Math.round(day.summary.avg_hr)} bpm
+                                </div>
+                                ` : ''}
+                                ${day.summary.total_distance ? `
+                                <div class="day-summary-item">
+                                    📏 ${day.summary.total_distance} км
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="day-activities">
+                            ${day.activities.length > 0
+                                ? day.activities.map(activity => createActivityCard(activity)).join('')
+                                : '<div style="text-align: center; opacity: 0.5; padding: 20px; font-size: 12px;">Нет тренировок</div>'
+                            }
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            document.getElementById('weekContainer').innerHTML = html;
+        }
+
+        async function loadWeekData(weekStart) {
+            try {
+                document.getElementById('weekContainer').innerHTML = '<div class="loading">Загрузка данных...</div>';
+
+                const url = weekStart
+                    ? `/api/weekly-calendar?week_start=${weekStart}`
+                    : '/api/weekly-calendar';
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentWeekStart = data.week_start;
+                renderWeeklyCalendar(data);
+            } catch (error) {
+                console.error('Error loading week data:', error);
+                document.getElementById('weekContainer').innerHTML = `
+                    <div class="error">
+                        <strong>Ошибка загрузки данных:</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        function getDateString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function navigateWeek(offset) {
+            if (!currentWeekStart) return;
+
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() + (offset * 7));
+            loadWeekData(getDateString(date));
+        }
+
+        // Event listeners
+        document.getElementById('prevWeek').addEventListener('click', () => navigateWeek(-1));
+        document.getElementById('nextWeek').addEventListener('click', () => navigateWeek(1));
+        document.getElementById('currentWeek').addEventListener('click', () => loadWeekData());
+
+        // Initial load
+        loadWeekData();
+    </script>
+</body>
+</html>
