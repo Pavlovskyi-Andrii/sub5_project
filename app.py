@@ -163,6 +163,15 @@ def weekly_calendar():
     """Weekly calendar view"""
     return render_template('weekly_calendar.html')
 
+@app.route('/performance')
+@app.route('/performance/')
+@app.route('/performance/<path:path>')
+def performance(path=''):
+    """Performance analytics page (React SPA)"""
+    from flask import send_from_directory
+    # For SPA routing, always serve index.html
+    return send_from_directory('static/performance', 'index.html')
+
 @app.route('/api/activities')
 def get_activities():
     """Get activities from database"""

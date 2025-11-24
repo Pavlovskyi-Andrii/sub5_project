@@ -1,0 +1,667 @@
+{
+  "app_title": "MicCoach Lab",
+  "app_subtitle_cycling": "Cycling",
+  "app_subtitle_running": "Running",
+  "nav_cycling": "Cycling",
+  "nav_running": "Running",
+  "nav_wiki": "Wiki",
+  "tooltip_wiki": "MicCoach Lab Wiki",
+  "close": "Close",
+  "language": "Language",
+  "common": {
+    "athlete_profile": "Your performance laboratory",
+    "male": "Male",
+    "female": "Female",
+    "weight": "Weight",
+    "body_weight": "Body Weight",
+    "gender": "Gender",
+    "athlete_data": "Athlete Data",
+    "athlete_params": "Athlete Parameters",
+    "invalid_data": "Please enter valid data to view parameters.",
+    "download_analysis": "Download Your Complete Analysis",
+    "view_models": "View models",
+    "domains": {
+      "moderate": "Moderate",
+      "heavy": "Heavy",
+      "severe": "Severe", 
+      "extreme": "Extreme"
+    },
+    "profiles": {
+      "time_trialist": "TIME TRIALIST",
+      "climber": "CLIMBER",
+      "all_rounder": "ALL-ROUNDER",
+      "puncheur": "PUNCHEUR",
+      "sprinter": "SPRINTER",
+      "runner_800m": "800m RUNNER",
+      "runner_1500m": "1500m RUNNER",
+      "runner_5000m": "5000m RUNNER", 
+      "runner_10000m": "10000m RUNNER",
+      "half_marathoner": "HALF MARATHONER",
+      "marathoner": "MARATHONER",
+      "complete_runner": "COMPLETE RUNNER"
+    }
+  },
+  "cycling": {
+    "lab_subtitle": "Your performance laboratory",
+    "cta_description": "Includes athlete profile, power zones and sustainable power in one PDF",
+    "model_parameters": {
+      "title": "Model Parameters",
+      "hyperbolic_model": "Hyperbolic Model (CP/W')",
+      "apr_model": "APR Model",
+      "power_law_model": "Power Law Model (S/E)",
+      "s_parameter": "S (Power Parameter)",
+      "e_parameter": "E (Endurance Parameter)",
+      "formula_note": "Model parameters: P = S × t^(E-1)",
+      "physiological_thresholds": "Physiological Thresholds",
+      "neuromuscular_power": "Neuromuscular Power (Pmax)",
+      "aerobic_power": "Maximal Aerobic Power (MAP)",
+      "mmss_boundary": "Heavy/Severe Boundary (MMSS & CP)",
+      "lt1_boundary": "Moderate/Heavy Boundary (LT1)",
+      "vo2max_consumption": "Maximum Oxygen Consumption (VO2max)",
+      "pmax_tooltip": "Represents the maximum expressible power, typically in a maximal effort of 1-5 seconds.",
+      "map_tooltip": "The power that, if maintained, allows reaching maximum oxygen consumption (VO2max) in the shortest possible time.",
+      "mmss_tooltip": "Critical Power (CP: {{cp}}W) is the mathematical marker of this boundary. Physiologically, it's not a single point but a transition zone (Maximum Metabolic Steady State) where the body shifts from a stable to an unstable metabolic state.",
+      "lt1_tooltip": "Represents the transition phase between 'Moderate' and 'Heavy' intensity domains.",
+      "lt1_note": "Note: The estimate is based on empirical models. A laboratory lactate test is recommended for precise determination.",
+      "vo2max_tooltip": "Represents the maximum capacity of the body to transport and utilize oxygen during exercise.",
+      "vo2max_note": "Note: The value is an estimate calculated indirectly through the Sitko et al. (2022) model."
+    },
+    "controls": {
+      "pmax_title": "Maximum Power (Pmax)",
+      "pmax_description": "Peak power over 1-5 seconds.",
+      "severe_test_title": "Short Effort Test (3-5 min)",
+      "severe_test_description": "Maximal test for VO2max estimation.",
+      "threshold_test_title": "Medium Effort Test (12-20 min)",
+      "threshold_test_description": "Maximal test for Critical Power estimation.",
+      "short_test_title": "Long Sprint Test (15s-90s)",
+      "short_test_description": "Optimizes the APR model `k` exponent estimation.",
+      "long_test_title": "Long Test (>20 min)",
+      "long_test_description": "Improves Power Law estimation for endurance.",
+      "power": "Power",
+      "time": "Time"
+    },
+    "chart": {
+      "physiological_profile": "Physiological Profile",
+      "invalid_data": "Invalid Data",
+      "valid_description": "Power-duration curves estimated from physiological models."
+    },
+    "zones": {
+      "title": "Physiological Power Zones",
+      "subtitle": "Zones calculated automatically from model parameters. *Empirically estimated value.",
+      "unavailable": "Zones unavailable - missing model parameters",
+      "zone_names": {
+        "easy": "EASY",
+        "endurance": "ENDURANCE",
+        "med_sst": "MED/SST",
+        "cp": "CP",
+        "hiit": "HIIT",
+        "sit": "SIT"
+      },
+      "table_headers": {
+        "zone": "Zone",
+        "name": "Name",
+        "power": "Power (W)",
+        "rpe": "RPE",
+        "domain": "Domain"
+      },
+      "mobile_labels": {
+        "power": "Power:",
+        "rpe": "RPE:"
+      },
+      "intensity_domains": {
+        "title": "Intensity Domains",
+        "descriptions": {
+          "moderate": "Maintaining a constant intensity within this domain, O2 consumption remains constant and stable, lactate also remains stable around baseline values.",
+          "heavy": "Maintaining a constant intensity within this domain, O2 consumption initially increases then reaches a plateau. Lactate settles at values higher than baseline but tends to balance between production and clearance/reuse.",
+          "severe": "Maintaining a constant intensity within this domain, O2 consumption will tend to increase continuously until reaching 100% of vo2max. Lactate will also continue to increase, breaking the balance between production and clearance.",
+          "extreme": "Intensities within the severe domain lead to exhaustion even before reaching 100% of O2 consumption."
+        }
+      }
+    },
+    "physiological_profile": {
+      "title": "Physiological Profile & Training",
+      "subtitle": "In-depth analysis of endurance phenotype and personalized advice.",
+      "error_title": "Physiological Profile & Training",
+      "error_message": "Enter valid data to view physiological profile analysis.",
+      "phenotype": "Phenotype",
+      "fatigue_resistance": "Fatigue Resistance Index",
+      "vo2_threshold_analysis": "VO2max / Threshold Ratio Analysis",
+      "training_advice": "Training Advice",
+      "weakness_note": "While you may respond more effectively to the specific training described above (which leverage your natural strengths), during the preparation period it's also important to dedicate time to the weak points of your profile to become a more complete and balanced athlete.",
+      "fatigue_tooltip": {
+        "title": "Fatigue Resistance Index",
+        "description": "This index measures the percentage drop in power when doubling duration, derived from your endurance parameter (E). A lower value indicates greater fatigue resistance.",
+        "classification": "Profile Classification:",
+        "resistant": "🟢 Resistant (< 7.5%): Excellent ability to maintain power over time.",
+        "mixed": "🟡 Mixed (7.5% - 9.5%): A balanced profile between power and duration.",
+        "fast": "🔴 Fast (> 9.5%): Explosive profile, with power that decays more rapidly.",
+        "note": "*Ranges are empirical values based on analysis of athletes followed by MicCoach."
+      },
+      "profiles": {
+        "resistant": "RESISTANT PROFILE",
+        "mixed": "MIXED PROFILE",
+        "fast": "FAST PROFILE"
+      },
+      "fatigue_decay": "({{percentage}}% drop when doubling duration)",
+      "physio_profile_title": "Your Physiological Profile & Key Advice",
+      "recommended_training": "Training Advice",
+      "hiit_description_short": "Considering your profile, you may respond better to shorter, more highly intensive interval formats like 30/15s.",
+      "hiit_description_long": "Considering your profile, you may respond well to longer, constant power intervals like 4x8 min high-intensity or 4-6x10 min threshold work.",
+      "speed_oriented": "Your analysis shows that your power over short durations (e.g., 5 min) is a strength compared to your endurance over long distances (e.g., 60 min). This profile is often associated with a lower VO2max utilization fraction (currently estimated at {{percentage}}%).",
+      "endurance_oriented": "Your analysis shows great ability to sustain power over time, with your long-distance performance (e.g., 60 min) being very solid compared to your power over shorter durations. This profile is often associated with a higher VO2max utilization fraction (currently estimated at {{percentage}}%)."
+    }
+  },
+  "running": {
+    "lab_subtitle": "Your performance laboratory", 
+    "cta_description": "Includes athlete profile, speed zones and sustainable performance in one PDF",
+    "controls": {
+      "severe_test_title": "Short Duration Effort (2-5 min)",
+      "severe_test_description": "Test for MAP estimation. Ideal duration: 3-4 min",
+      "threshold_test_title": "Medium Duration Effort (5-16 min)",
+      "threshold_test_description": "Test for Critical Speed estimation. Ideal duration: 12-16 min",
+      "long_test_title": "Long Duration Effort (>16 min)",
+      "long_test_description": "Improves Power Law estimation for endurance.",
+      "distance": "Distance",
+      "minutes": "Minutes",
+      "seconds": "Seconds",
+      "hours": "Hours", 
+      "total_time": "Total time",
+      "gender": "Gender",
+      "male": "Male",
+      "female": "Female",
+      "physiological_profile_description": "For physiological profile calculation"
+    },
+    "chart": {
+      "velocity_duration_profile": "Velocity-Duration Profile",
+      "invalid_data": "Invalid Data",
+      "valid_description": "Pace-distance curves estimated from physiological models."
+    },
+    "model_parameters": {
+      "title": "Model Parameters",
+      "error_title": "Model Parameters",
+      "error_message": "Enter valid data to display parameters.",
+      "hyperbolic_model": "Hyperbolic Model (CS/D')",
+      "power_law_model": "Power Law Model (S/E)",
+      "cs": "CS",
+      "cs_pace": "CS Pace",
+      "d_prime": "D'",
+      "speed_parameter": "S (Speed Parameter)",
+      "endurance_parameter": "E (Endurance Parameter)",
+      "formula_note": "Model parameters: v = S × t^(E-1)",
+      "thresholds_title": "Physiological Thresholds",
+      "map_3min": "MAP (3-min)",
+      "critical_speed": "CS (Critical Speed)",
+      "lt1_estimated": "Estimated LT1 Pace*",
+      "empirical_note": "*Estimate based on empirical data and Power Law model E parameter. A laboratory lactate test is recommended for precise LT1 determination.",
+      "debug_title": "Debug Info (High Precision)",
+      "lt1_formula": "LT1 Formula"
+    },
+    "zones": {
+      "title": "Physiological Training Zones",
+      "subtitle": "Zones calculated using LT1 based on Power Law model E parameter*.",
+      "error_title": "Training Zones",
+      "error_message": "Training zones will be available when models are valid.",
+      "zone": "Zone",
+      "name": "Name",
+      "speed": "Speed (km/h)",
+      "pace": "Pace (min/km)",
+      "rpe": "RPE",
+      "domain": "Domain",
+      "zones": {
+        "z1": "EASY",
+        "z2": "END",
+        "z3": "MED/SST",
+        "z4": "CS",
+        "z5": "HIIT",
+        "z6": "SIT"
+      },
+      "domains": {
+        "moderate": "Moderate",
+        "heavy": "Heavy",
+        "severe": "Severe",
+        "extreme": "Extreme"
+      },
+      "domains_legend": "Intensity Domains",
+      "domain_descriptions": {
+        "moderate": "Maintaining a constant intensity within this domain, O2 consumption remains constant and stable, lactate also remains stable around baseline values.",
+        "heavy": "Maintaining a constant intensity within this domain, O2 consumption initially increases then reaches a plateau. Lactate settles at higher values than baseline but tends to balance between production and clearance/reuse.",
+        "severe": "Maintaining a constant intensity within this domain, O2 consumption will tend to increase continuously until reaching 100% of VO2max. Lactate will also continue to increase, breaking the balance between production and clearance.",
+        "extreme": "Intensities within the severe domain lead to exhaustion before reaching 100% of O2 consumption."
+      }
+    },
+    "sustainable": {
+      "title": "Sustainable Performance",
+      "subtitle": "Predicted times and average pace for various distances based on physiological models",
+      "error_title": "Sustainable Performance",
+      "error_message": "Sustainable performance will be available when models are valid.",
+      "distance": "Distance",
+      "predicted_time": "Predicted Time",
+      "average_pace": "Average Pace",
+      "model": "Model",
+      "models_legend": "Models Used",
+      "half_marathon": "Half Marathon",
+      "marathon": "Marathon"
+    },
+    "physiological_profile": {
+      "title": "Physiological Profile",
+      "subtitle": "In-depth analysis of endurance phenotype.",
+      "error_title": "Physiological Profile",
+      "error_message": "Enter valid data to view physiological profile analysis.",
+      "fatigue_resistance": "Fatigue Resistance Index",
+      "fatigue_tooltip": {
+        "title": "Fatigue Resistance Index",
+        "description": "This index measures the percentage drop in speed when doubling duration, derived from your endurance parameter (k). A lower value indicates greater fatigue resistance.",
+        "classification": "Profile Classification:",
+        "resistant": "🟢 Resistant (< 7.5%): Excellent ability to maintain speed over time.",
+        "mixed": "🟡 Mixed (7.5% - 9.5%): A balanced profile between speed and duration.",
+        "fast": "🔴 Fast (> 9.5%): Explosive profile, with speed that decays more rapidly.",
+        "note": "*Ranges are empirical values based on analysis of athletes followed by MicCoach."
+      },
+      "profiles": {
+        "resistant": "RESISTANT PROFILE",
+        "mixed": "MIXED PROFILE",
+        "fast": "FAST PROFILE"
+      },
+      "fatigue_decay": "({{percentage}}% drop when doubling duration)",
+      "phenotype_analysis": "Analysis of Your Phenotype",
+      "endurance_oriented": "Your analysis shows that your performance over longer distances (e.g., 10km) is a strength compared to your pure speed over short distances (e.g., 1500m). This profile is often associated with a higher VO2max utilization fraction (currently estimated at {{percentage}}%), indicating great metabolic efficiency in the aerobic zone.",
+      "speed_oriented": "Your analysis shows that your performance over short distances (e.g., 1500m) is superior to your endurance capabilities over longer distances. This profile is often associated with a lower VO2max utilization fraction (currently estimated at {{percentage}}%), suggesting a phenotype more oriented towards speed and neuromuscular power.",
+      "utilization_fraction": "Estimated Utilization Fraction: {{percentage}}%",
+      "utilization_description": "The utilization fraction represents the percentage of VO2max you can sustain at Critical Speed. Higher values indicate greater aerobic efficiency."
+    }
+  },
+  "wiki": {
+    "title": "MicCoach Lab Wiki: Performance Glossary",
+    "intro": "Welcome to your performance laboratory! Here you will find clear explanations based on scientific evidence of the terms and advanced models that MicCoach Lab uses to analyze your performance.",
+    "s1": {
+      "title": "1. Physiological Models: The Foundation of Your Analysis",
+      "intro": "The app uses three advanced mathematical models to describe your power-duration relationship (in cycling) or speed-duration (in running). Each model specializes in analyzing specific duration intervals and integrates with others to provide a complete and accurate physiological picture.",
+      "cpw": {
+        "title": "1.1. CP/W' Model (Critical Power / W' Balance)",
+        "what": "<strong>What it is:</strong> This model describes the hyperbolic relationship between the power (or speed) you can maintain and the maximum time you can maintain it during high-intensity medium-duration efforts. It is one of the most studied and applied models in exercise physiology [Leo et al., 2022].",
+        "measures": "<strong>What it Measures:</strong> It focuses on the Severe domain (efforts typically between 2 and 15 minutes). Beyond this interval, the predictive validity of the model is subject to scientific debate [Drake et al., 2024].",
+        "cp_definition": "<strong>CP (Critical Power / Critical Speed):</strong> It is the maximum theoretical power (or speed) you can sustain without progressive and irreversible fatigue accumulation [Leo et al., 2022]. Historically interpreted as sustainable indefinitely, this view is now debated and CP is considered sustainable for limited periods (e.g., 20-40 minutes) [Drake et al., 2024; Leo et al., 2022]. It represents the upper boundary of the \"Heavy\" domain, indicating maximum intensity with predominant aerobic contribution.",
+        "w_prime_definition": "<strong>W' (Anaerobic Work Capacity):</strong> It is the finite amount of work (energy) you can perform above <strong>CP/CS</strong> before complete exhaustion. It represents your \"anaerobic reserve\" or anaerobic work capacity [Leo et al., 2022]. This reserve is finite and depletes when producing power above <strong>CP/CS</strong>.",
+        "strengths_title": "Strengths:",
+        "strengths": [
+          "Extremely predictive for efforts lasting between 2 and 15 minutes [Drake et al., 2024]",
+          "<strong>CP/W'</strong> parameters have clear physiological meaning and are widely used in research and practice"
+        ],
+        "weaknesses_title": "Weaknesses:",
+        "weaknesses": [
+          "Not accurate for very short efforts (< 2 minutes) or long duration (> 15 minutes), where it can lead to unrealistic or less accurate predictions [Drake et al., 2024]"
+        ],
+        "integration": "<strong>How MicCoach Lab Integrates it:</strong> The app uses this model to calculate your <strong>CP/CS</strong> and your <strong>W'</strong>, and to predict performance in a range of medium durations, typically between 2 and 15 minutes (e.g., 5 min, 10 min in cycling, or tests like 1500m-3000m in running)."
+      },
+      "apr": {
+        "title": "1.2. APR Model (Anaerobic Power Reserve)",
+        "what": "<strong>What it is:</strong> This model focuses on the relationship between your maximum (neuromuscular) power and your aerobic power, through exponential decay. It is particularly useful for analyzing short efforts and anaerobic capacity [Sanders & Heijboer, 2018].",
+        "measures": "<strong>What it Measures:</strong> Primarily analyzes the Extreme domain (efforts typically between 1 second and 3 minutes) and integrates perfectly with the CP/W' model to provide a complete view of your capabilities.",
+        "pmax_definition": "<strong>Pmax (Maximum Power):</strong> Your peak neuromuscular power, achieved in very short maximal efforts (1-5 seconds). Reflects your muscle recruitment capacity and explosive strength.",
+        "p3min_definition": "<strong>P3min:</strong> The power you can maintain for 3 minutes. This is a very accurate estimate of your Maximal Aerobic Power (MAP), the point where you reach 100% of your VO2max [Sanders & Heijboer, 2018].",
+        "apr_definition": "<strong>APR (Anaerobic Power Reserve):</strong> The difference between Pmax and P3min (APR = Pmax - P3min). Represents your \"anaerobic power reserve\" available for sprints, attacks, and explosive efforts.",
+        "k_definition": "<strong>k (Decay Constant):</strong> Describes the rate at which your power decays from maximal efforts. A higher k indicates faster decay (explosive profile), a lower k indicates greater sustainability of short efforts.",
+        "strengths_title": "Strengths:",
+        "strengths": [
+          "Extremely accurate for short efforts (1 second - 3 minutes) [Sanders & Heijboer, 2018]",
+          "Provides clear, interpretable parameters (Pmax, MAP, APR) with direct physiological meaning",
+          "Integrates perfectly with the CP/W' model to cover the entire duration spectrum"
+        ],
+        "weaknesses_title": "Weaknesses:",
+        "weaknesses": [
+          "Not designed for long-duration efforts (> 5-8 minutes), where other models are more appropriate",
+          "Requires quality data for very short efforts for accurate estimation of the k parameter"
+        ],
+        "integration": "<strong>How MicCoach Lab Integrates it:</strong> The app uses this model to calculate your <strong>Pmax</strong>, <strong>MAP</strong>, <strong>APR</strong> and the <strong>k</strong> parameter, providing accurate predictions for efforts from 1 second to ~5 minutes and enabling complete analysis of your neuromuscular and anaerobic profile."
+      },
+      "power_law": {
+        "title": "1.3. Power Law Model (S/E)",
+        "what": "<strong>What it is:</strong> This model describes the power law relationship between your power/speed and time through two parameters: S (scale) and E (endurance). It is particularly effective for analyzing a broad spectrum of durations and characterizing your endurance phenotype [Vandewalle et al., 2018; Drake et al., 2024].",
+        "measures": "<strong>What it Measures:</strong> Fits excellently to all durations, from 30 seconds to 2+ hours, making it the most versatile model for long-term endurance analysis [Drake et al., 2024].",
+        "s_definition": "<strong>S (Speed/Power Parameter):</strong> Represents your theoretical power (or speed) you could maintain for 1 second. It's an indicator of your baseline neuromuscular capacity and determines \"how high\" your power curve starts [Vandewalle et al., 2018].",
+        "e_definition": "<strong>E (Endurance Parameter):</strong> A parameter between 0 and 1 that describes the shape of your curve. Higher E values indicate greater fatigue resistance (endurance profile), lower values indicate faster decay (explosive profile) [Vandewalle et al., 2018; Drake et al., 2024].",
+        "strengths_title": "Strengths:",
+        "strengths": [
+          "Exceptional versatility: accurate for all durations from 30 seconds to 2+ hours [Drake et al., 2024]",
+          "The E parameter provides unique insights into your endurance phenotype and fatigue resistance",
+          "Mathematically robust and stable even with limited datasets"
+        ],
+        "weaknesses_title": "Weaknesses:",
+        "weaknesses": [
+          "The S and E parameters, while predictive, have less direct physiological meaning compared to CP/W' and APR models",
+          "May be less precise for very short efforts (< 30 seconds) compared to the APR model specifically calibrated for that zone"
+        ],
+        "integration": "<strong>How MicCoach Lab Integrates it:</strong> The app uses this model as the \"backbone\" for long-term endurance analysis, training zone estimation (via LT1), performance predictions for long races (e.g., half marathons, marathons), and to characterize your individual phenotype of fatigue resistance."
+        }
+      },
+      "s2": {
+        "title": "2. Model Parameters: The Numbers That Define Your Performance",
+        "cp_w": {
+          "title": "2.1. CP/W' Model",
+          "cp": {
+            "title": "CP (Critical Power / Critical Speed):",
+            "explanation": "<strong>Explanation:</strong> This is the theoretical maximum power (or speed) you can sustain indefinitely without accumulating progressive metabolic fatigue. It represents your aerobic threshold power (or speed).",
+            "units": "<strong>Units:</strong> Watts (cycling), m/s (running) and corresponding pace min/km (running).",
+            "calculation": "<strong>Calculation Example:</strong> <strong>CP/CS</strong> is typically calculated through linear regression of power (or speed) against the inverse of time, using data from maximal efforts in a 2-15 minute range."
+          },
+          "w_prime": {
+            "title": "W' (Anaerobic Work Capacity):",
+            "explanation": "<strong>Explanation:</strong> The total amount of work (energy) you can produce above your <strong>CP/CS</strong> before exhaustion. It's your extra anaerobic \"fuel\".",
+            "units": "<strong>Units:</strong> Joules (J) for cycling, meters (m) for running (distance you can cover above <strong>CS</strong>).",
+            "calculation": "<strong>Calculation Example:</strong> If your <strong>CP</strong> is 300 W and you have a <strong>W'</strong> of 20,000 J, the power you can sustain for 5 minutes (300 s) will be approximately 367 W (300 + 20000 / 300 = 366.67 W)."
+          }
+        },
+        "apr": {
+          "title": "2.2. APR Model",
+          "pmax": {
+            "title": "Pmax (Maximum Power):",
+            "explanation": "<strong>Explanation:</strong> Your highest explosive power, achieved in a very brief effort (1-5 seconds). It reflects muscular strength and contraction speed.",
+            "units": "<strong>Units:</strong> Watts (W)."
+          },
+          "p3min": {
+            "title": "P3min:",
+            "explanation": "<strong>Explanation:</strong> The power you can maintain for about 3 minutes. It's a very reliable estimate of your maximum aerobic power (<strong>PVO2max</strong>), i.e., the peak of your aerobic capacity [Sanders & Heijboer, 2018].",
+            "units": "<strong>Units:</strong> Watts (W)."
+          },
+          "apr_param": {
+            "title": "APR (Anaerobic Power Reserve):",
+            "explanation": "<strong>Explanation:</strong> The difference between your <strong>Pmax</strong> and your <strong>P3min</strong> (<strong>APR</strong> = <strong>Pmax</strong> - <strong>P3min</strong>). It represents your total anaerobic power reserve, useful for sprints, lightning attacks, or closing gaps.",
+            "units": "<strong>Units:</strong> Watts (W)."
+          },
+          "k": {
+            "title": "k (Decay Exponent):",
+            "explanation": "<strong>Explanation:</strong> Describes how rapidly your power drops from brief maximal efforts. A higher k indicates faster decay (more explosive but less sustainable profile), while a lower k indicates greater sustainability of brief efforts.",
+            "units": "<strong>Units:</strong> Dimensionless (no units).",
+            "calculation": "<strong>Calculation Example:</strong> If <strong>Pmax</strong> = 1000 W, <strong>P3min</strong> = 400 W and k = 0.03, the power you can sustain after 60 seconds will be approximately 499 W (400 + (1000 - 400) * exp(-0.03 * 60) = 499 W)."
+          }
+        },
+        "power_law": {
+          "title": "2.3. Power Law Model (S/E)",
+          "s": {
+            "title": "S (Speed/Power Parameter):",
+            "explanation": "<strong>Explanation:</strong> Your theoretical maximum power (or speed) that you could maintain for 1 second. It's an indication of your neuromuscular capacity and how \"high\" your power/speed profile starts [Vandewalle et al., 2018].",
+            "units": "<strong>Units:</strong> Watts (W) for cycling, m/s (running).",
+            "calculation": "<strong>Calculation Example:</strong> If your performance data (e.g., 240s, 400W; 900s, 330W; 1800s, 305W) is used for logarithmic regression (ln(P) vs ln(t)), <strong>S</strong> will result in approximately 836 W."
+          },
+          "e": {
+            "title": "E (Endurance Parameter):",
+            "explanation": "<strong>Explanation:</strong> This parameter (between 0 and 1) describes the shape of your power/speed curve. A higher <strong>E</strong> means your power (or speed) decays slowly over time, indicating a more resistant and endurance profile. A lower <strong>E</strong> indicates faster decay, typical of more explosive profiles [Vandewalle et al., 2018; Drake et al., 2024].",
+            "units": "<strong>Units:</strong> Dimensionless (no units).",
+            "calculation": "<strong>Calculation Example:</strong> For the data above, <strong>E</strong> will be calculated through logarithmic regression and will result in approximately 0.8655."
+          }
+        }
+      },
+      "s3": {
+        "title": "3. Applied Formulas: The Heart of Calculations",
+        "intro": "MicCoach Lab uses these formulas to predict your performance:",
+        "cp_w_formula": {
+          "title": "3.1. CP/W' Model (Power or Speed over Time)",
+          "formula": "Power(t) = CP + W' / t<br/>Speed(t) = CS + D' / t"
+        },
+        "apr_formula": {
+          "title": "3.2. APR Model (Power over Time, Cycling)",
+          "formula": "Power(t) = P3min + (Pmax - P3min) * exp(-k*t)"
+        },
+        "power_law_formula": {
+          "title": "3.3. Power Law Model (Power/Speed over Time)",
+          "formula": "Power(t) = S * t^(E-1)<br/>Speed(t) = S * t^(E-1)"
+        }
+      },
+      "s4": {
+        "title": "4. Card and Spider Graph Scores: Your Athlete Rating",
+        "intro": "MicCoach Lab transforms your raw data into an intuitive scoring system, similar to video games, to give you an immediate picture of your strength in different areas.",
+        "calculations": {
+          "title": "4.1. Individual Statistics Score Calculation",
+          "what_are": "<strong>What they are:</strong> Your W/kg (cycling) or your times (running) are compared with reference benchmarks (world records for running, elite athletes for cycling). These benchmarks derive from extensive athlete databases [Rod Siegel email].",
+          "differentiated": "<strong>Differentiated Benchmarks:</strong> Benchmarks are specific for gender (male/female) to ensure fair evaluation.",
+          "cycling_formula": {
+            "title": "Formula (Cycling):",
+            "formula": "Score = (athlete_W/kg / benchmark_W/kg) * 95",
+            "explanation": "If you achieve exactly the benchmark W/kg, your score will be 95. If you're stronger, it will go above 95."
+          },
+          "running_formula": {
+            "title": "Formula (Running):",
+            "formula": "Score = (benchmark_time / athlete_time) * 100",
+            "explanation": "Since for time a lower value is better, the benchmark time is in the numerator. If you achieve exactly the benchmark time, your score will be 100."
+          },
+          "rounding": "<strong>Rounding:</strong> All scores are rounded to the nearest integer.",
+          "epic_effect": "<strong>\"Epic\" Effect:</strong> If a score exceeds 99, the progress bar and number on the Athlete Card light up with a \"fiery\" or golden effect, to celebrate exceptional performance."
+        },
+        "cycling_spider": {
+          "title": "4.2. Spider Graph Scores (Cycling)",
+          "intro": "The 5 main statistics that form your visual profile are:",
+          "stats": [
+            "• <strong>NM (Neuromuscular):</strong> Your maximum power in 5 seconds",
+            "• <strong>LACT (Lactate Capacity):</strong> Your maximum power in 1 minute",
+            "• <strong>VO2MAX (Maximum Aerobic Power):</strong> Your maximum power in 5 minutes",
+            "• <strong>THRESHOLD:</strong> Your maximum power in 20 minutes (correlated to Critical Power)",
+            "• <strong>STAMINA (Endurance):</strong> Your maximum power in 60 minutes"
+          ]
+        },
+        "running_spider": {
+          "title": "4.3. Spider Graph Scores (Running)",
+          "intro": "The 5 main statistics that form your visual profile are:",
+          "stats": [
+            "• <strong>1500m:</strong> Your predicted time over 1500 meters",
+            "• <strong>5000m:</strong> Your predicted time over 5000 meters",
+            "• <strong>10km:</strong> Your predicted time over 10 kilometers",
+            "• <strong>Half:</strong> Your predicted time over the Half Marathon",
+            "• <strong>Marathon:</strong> Your predicted time over the Marathon"
+          ]
+        },
+        "overall_rating": {
+          "title": "4.4. Overall Rating",
+          "what_is": "<strong>What it is:</strong> It's the rounded arithmetic mean of all 5 statistics scores. It gives you a general idea of your performance level compared to benchmarks.",
+          "rarity": "<strong>Rarity Tiers:</strong> The Overall Rating determines the visual style of your Athlete Card (Standard, Elite, Pro, Hero, ALIEN), making it a symbol of your level of excellence."
+        },
+        "athlete_profile": {
+          "title": "4.5. Athlete Profile",
+          "what_is": "<strong>What it is:</strong> MicCoach Lab analyzes the \"shape\" of your score curve to identify your main specialization (e.g., SPRINTER, CLIMBER, MARATHONER) or to recognize if you're an \"ALL-ROUNDER\" (Cycling) / \"COMPLETE ATHLETE\" (Running).",
+          "how_works": "<strong>How it works:</strong> The algorithm compares your scores in different areas and identifies the one where you excel most. If there's no clear dominance (difference < 10 points between maximum and minimum), you're classified as \"versatile\"."
+        }
+      },
+      "s5": {
+        "title": "5. Bibliography and Scientific References",
+        "intro": "MicCoach Lab is based on cutting-edge scientific research:",
+        "references": [
+          "Monod, H. & Scherrer, J. (1965). The work capacity of a synergic muscular group. Ergonomics, 8(3), 329-338.",
+          "Moritani, T., Nagata, A., deVries, H. A., & Muro, M. (1981). Critical power as a measure of physical work capacity and anaerobic threshold. Ergonomics, 24(5), 339-350.",
+          "Jones, A. M., Burnley, M., Black, M. I., Poole, D. C., & Vanhatalo, A. (2019). The maximal metabolic steady state: redefining the 'gold standard'. Physiological reports, 7(10), e14098.",
+          "Vandewalle, H., Vautier, J. F., Kachouri, M., Lechevalier, J. M., & Monod, H. (2018). Work-exhaustion time relationships and the critical power concept. A critical review. Journal of sports medicine and physical fitness, 27(4), 452-489.",
+          "Drake, J. C., Maunder, E., Friedrich, M., & Zouhal, H. (2024). Power-duration relationship: New insights and future directions. Sports medicine, 54(2), 301-325.",
+          "Sanders, D., & Heijboer, M. (2018). The anaerobic power reserve and its applicability in professional road cycling. Journal of sports sciences, 36(6), 621-629.",
+          "Rod Siegel, Power Meter Benchmarks Database (personal communication via email)."
+        ]
+      }
+    },
+    "calculators": {
+    "performance_calculator": "Performance Calculator",
+    "invalid_data": "Enter valid data to use the calculator.",
+    "sustainable_power": "Sustainable Power",
+    "sustainable_duration": "Sustainable Duration", 
+    "total_time": "Total time",
+    "model_used": "Model used",
+    "automatic_selection": "Automatic selection",
+    "transition_zone": "Transition Zone (2-3min) - Model Comparison",
+    "both_models_applicable": "Both models are applicable in this zone. Main result: higher value (conservative).",
+    "duration_to_power": "Duration → Power",
+    "power_to_duration": "Power → Duration",
+    "target_power": "Target Power (W)",
+    "difference": "Difference",
+    "apr_model": "APR Model",
+    "cpw_model": "CP-W' Model",
+    "explanation": "Sustainable power estimation based on physiological models (APR ≤3min, CP-W' 3-16min, Power Law >16min)",
+    "transition_explanation": "2-3min zone: comparison between APR and CP-W' models",
+    "both_models_valid": "BOTH MODELS VALID IN TRANSITION ZONE"
+  },
+  "sustainable": {
+    "title": "Sustainable Powers",
+    "running_title": "Sustainable Performances",
+    "description": "Absolute and relative (W/kg) sustainable powers for different durations based on physiological models",
+    "running_description": "Sustainable times and paces for different distances based on physiological models",
+    "unavailable": "Sustainable powers will be available when models are valid.",
+    "running_unavailable": "Sustainable performances will be available when models are valid.",
+    "duration": "Duration",
+    "distance": "Distance",
+    "absolute_power": "Absolute Power",
+    "relative_power": "Relative Power",
+    "time": "Time",
+    "pace": "Pace",
+    "model": "Model",
+    "models_used": "Models Used",
+    "apr_range": "≤ 3 minutes",
+    "cpw_range": "3-16 minutes",
+    "cs_range": "≤ 16 minutes", 
+    "powerlaw_range": "> 16 minutes",
+    "legend_note": "Models are automatically selected based on optimal duration/distance for each."
+  },
+  "athlete_card": {
+    "performance_analysis": "Performance Analysis",
+    "generated_on": "Generated on",
+    "profiles": {
+      "cycling": {
+        "sprinter": "Sprinter",
+        "puncheur": "Puncheur",
+        "climber": "Climber",
+        "time_trialist": "Time Trialist",
+        "all_rounder": "All-Rounder"
+      },
+      "running": {
+        "mezzofondista_veloce": "Fast Middle Distance",
+        "mezzofondista": "Middle Distance",
+        "fondista": "Distance Runner",
+        "specialista_mezza": "Half Marathon Specialist",
+        "maratoneta": "Marathoner",
+        "atleta_completo": "Complete Athlete"
+      }
+    },
+    "distances": {
+      "half_marathon": "Half Marathon",
+      "marathon": "Marathon"
+    }
+  },
+  "pdf": {
+    "lead_form": {
+      "title": "Download Your Complete Analysis",
+      "name": "Name",
+      "email": "Email",
+      "download": "Download PDF",
+      "downloading": "Downloading...",
+      "success": "PDF downloaded successfully!",
+      "error": "Error downloading PDF"
+    }
+  },
+  "forms": {
+    "consultation": {
+      "title": "Book Personalized Consultation",
+      "subtitle": "Get an in-depth analysis of your data with an expert",
+      "name": "Full name",
+      "email": "Email",
+      "message": "Describe your goals and questions",
+      "send": "Send Request",
+      "sending": "Sending...",
+      "success": "Request sent successfully! We'll contact you soon.",
+      "error": "Error sending request. Please try again later."
+    }
+  },
+  "consultation": {
+    "title": "Request Your Personalized Consultation",
+    "trigger_button": "Request a Consultation",
+    "subtitle": "To proceed, follow these two simple steps:",
+    "step1": {
+      "title": "Download Your PDF Report",
+      "description": "Save the report to your device by clicking the button below."
+    },
+    "step2": {
+      "title": "Send an Email",
+      "description": "Click here to open your mail client with a pre-filled message. Don't forget to attach the report you just downloaded.",
+      "button": "Send Email with Pre-filled Message"
+    },
+    "footer": "I will respond as soon as possible to discuss your goals together! 🚴‍♂️"
+  },
+  "pdf_generator": {
+    "title_cycling": "Physiological Analysis based on the power-duration curve",
+    "title_running": "Physiological Analysis based on the velocity-duration curve",
+    "subtitle": "Precision Mathematical Models for Performance Assessment",
+    "personal_info": "Personal Information",
+    "date": "Date",
+    "name": "Name",
+    "email": "Email",
+    "weight": "Body Weight",
+    "physiological_refs": "Physiological References",
+    "important_note": "Important Note",
+    "cycling": {
+      "chart_title": "Power-Duration Curve",
+      "references": {
+        "pmax": {
+          "title": "Neuromuscular Power (Pmax)",
+          "description": "Represents the maximum expressible power, typically in a maximal effort of 1-5 seconds."
+        },
+        "map": {
+          "title": "Maximal Aerobic Power (MAP)",
+          "description": "The power that, if maintained, allows reaching the maximum oxygen consumption (VO2max) in the shortest possible time."
+        },
+        "cp": {
+          "title": "Heavy/Severe Boundary (MMSS & CP)",
+          "description": "Critical Power (CP: {{cp}}W) is the mathematical marker of this boundary. Physiologically, it's not a single point but a transition zone (Maximum Metabolic Steady State) where the body transitions from a stable to an unstable metabolic state."
+        },
+        "lt1": {
+          "title": "Moderate/Heavy Boundary (LT1)",
+          "description": "Represents the transition phase between the 'Moderate' and 'Heavy' intensity domains.",
+          "note": "Note: The estimate is based on empirical models. A lactate test in the laboratory is recommended for precise determination."
+        },
+        "vo2max": {
+          "title": "Maximum Oxygen Consumption (VO2max)",
+          "description": "Represents the body's maximum capacity to transport and utilize oxygen during exercise.",
+          "note": "Note: The value is an estimate calculated indirectly through the Sitko et al. (2022) model."
+        }
+      }
+    },
+    "running": {
+      "chart_title": "Velocity-Duration Curve",
+      "predictions_title": "Performance Predictions",
+      "zones_title": "Training Zones",
+      "references": {
+        "cs": {
+          "title": "CS (Critical Speed) - Critical Speed",
+          "description": "Critical Speed (CS) is the mathematical marker of the boundary between the 'Heavy' and 'Severe' intensity domains. Physiologically, this boundary is not a single point but a transition zone (often defined as Maximum Metabolic Steady State - MMSS) where the body transitions from a stable to an unstable metabolic state. Running near or slightly above CS quickly leads to loss of equilibrium and increased fatigue."
+        },
+        "lt1": {
+          "title": "LT1 (First Lactate Threshold) - Empirical Estimate",
+          "description": "The First Lactate Threshold (LT1) represents the transition phase between the 'Moderate' and 'Heavy' domains. Above this zone, blood lactate and oxygen consumption take more time to stabilize. The estimate is based on empirical data and should be validated with a specific test."
+        },
+        "d_prime": {
+          "title": "D' (D-prime) - Anaerobic Capacity",
+          "description": "Distance available above Critical Speed"
+        },
+        "endurance_index": {
+          "title": "Endurance Index",
+          "description": "E is a parameter that describes how slowly an athlete's speed decays over time."
+        },
+        "map": {
+          "title": "MAP (3min pace)",
+          "description": "Theoretical pace for 3 minutes of running"
+        }
+      }
+    },
+    "table_headers": {
+      "distance": "Distance",
+      "predicted_time": "Predicted Time",
+      "average_pace": "Average Pace"
+    },
+    "branding": {
+      "name": "Michael Pesse",
+      "title": "Professional Coach",
+      "email": "Mail: info@miccoach.it",
+      "website": "www.miccoach.it"
+    },
+    "note_text": "Critical Speed (CS) and other threshold values are estimates derived from mathematical models and are subject to statistical and physiological error margins. They represent the best estimate of a 'transition zone' rather than an absolute value."
+  },
+  "footer": {
+    "brand": "MicCoach Performance",
+    "copyright": "© 2024 - Michael Pesse. All rights reserved.",
+    "tagline": "Science at the service of your passion.",
+    "support_button": "☕ Support MicCoach Lab",
+    "support_description": "Your support helps cover hosting and development costs."
+  }
+}
