@@ -54,6 +54,9 @@ const RunningModelParameters: React.FC<RunningModelParametersProps> = ({ models 
                 <span className="text-slate-400">{t('running.model_parameters.d_prime')}:</span>
                 <span className="text-white font-medium">{models.dPrime.toFixed(1)} m</span>
               </div>
+              <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                {t('running.model_parameters.hyperbolic_model_description')}
+              </p>
             </div>
           </div>
 
@@ -78,6 +81,9 @@ const RunningModelParameters: React.FC<RunningModelParametersProps> = ({ models 
               </div>
               <p className="text-xs text-slate-500 mt-2">
                 {t('running.model_parameters.formula_note')}
+              </p>
+              <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                {t('running.model_parameters.power_law_model_description')}
               </p>
             </div>
           </div>

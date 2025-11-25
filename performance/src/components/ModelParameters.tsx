@@ -61,6 +61,9 @@ const ModelParameters: React.FC<ModelParametersProps> = ({ models, bodyWeight })
                   <span className="text-slate-400">W':</span>
                   <span className="text-white font-medium">{Math.round(models.wPrime)} J</span>
                 </div>
+                <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                  {t('cycling.model_parameters.hyperbolic_model_description')}
+                </p>
               </div>
             </div>
 
@@ -83,6 +86,9 @@ const ModelParameters: React.FC<ModelParametersProps> = ({ models, bodyWeight })
                   <span className="text-slate-400">k:</span>
                   <span className="text-white font-medium">{models.apr_params.k.toFixed(3)}</span>
                 </div>
+                <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                  {t('cycling.model_parameters.apr_model_description')}
+                </p>
               </div>
             </div>
 
@@ -103,6 +109,9 @@ const ModelParameters: React.FC<ModelParametersProps> = ({ models, bodyWeight })
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
                   {t('cycling.model_parameters.formula_note')}
+                </p>
+                <p className="text-xs text-slate-500 mt-3 pt-3 border-t border-slate-700">
+                  {t('cycling.model_parameters.power_law_model_description')}
                 </p>
               </div>
             </div>

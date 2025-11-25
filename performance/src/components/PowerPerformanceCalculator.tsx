@@ -361,26 +361,26 @@ const PowerPerformanceCalculator: React.FC<PowerPerformanceCalculatorProps> = ({
             {dualPrediction && (
               <div className="mt-4 p-4 bg-gradient-to-r from-purple-900/30 to-red-900/30 rounded-lg border border-yellow-500/50">
                 <h4 className="text-yellow-400 font-semibold mb-2 flex items-center">
-                  🔀 Zona di Transizione (2-3min) - Confronto Modelli
+                  🔀 {t('calculators.transition_zone')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="text-center">
-                    <div className="text-purple-300 font-medium">APR Model</div>
+                    <div className="text-purple-300 font-medium">{t('calculators.apr_model')}</div>
                     <div className="text-white font-bold text-lg">{Math.round(dualPrediction.aprPower)} W</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-red-300 font-medium">CP-W' Model</div>
+                    <div className="text-red-300 font-medium">{t('calculators.cpw_model')}</div>
                     <div className="text-white font-bold text-lg">{Math.round(dualPrediction.cpwPower)} W</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-yellow-300 font-medium">Differenza</div>
+                    <div className="text-yellow-300 font-medium">{t('calculators.difference')}</div>
                     <div className="text-white font-bold text-lg">
                       {Math.round(dualPrediction.difference)} W ({dualPrediction.differencePercent.toFixed(1)}%)
                     </div>
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 mt-2 text-center">
-                  Entrambi i modelli sono applicabili in questa zona. Risultato principale: valore più basso (conservativo).
+                  {t('calculators.both_models_applicable')}
                 </p>
               </div>
             )}
@@ -388,11 +388,11 @@ const PowerPerformanceCalculator: React.FC<PowerPerformanceCalculatorProps> = ({
             {calculatedPower && (
               <div className="mt-4 p-3 bg-slate-900 rounded border border-slate-600">
                 <p className="text-xs text-slate-400">
-                  <strong>Tempo totale:</strong> {formatForDisplay.time(inputHours * 3600 + inputMinutes * 60 + inputSeconds)} •{' '}
-                  <strong>Modello utilizzato:</strong> {usedModel}
+                  <strong>{t('calculators.total_time')}:</strong> {formatForDisplay.time(inputHours * 3600 + inputMinutes * 60 + inputSeconds)} •{' '}
+                  <strong>{t('calculators.model_used')}:</strong> {usedModel}
                 </p>
                 <div className="mt-2 text-xs text-slate-500">
-                  <strong>Selezione automatica:</strong> APR (≤3min) • CP-W' (3-16min) • Power Law (&gt;16min) • Zona transizione (2-3min)
+                  <strong>{t('calculators.automatic_selection')}:</strong> {t('calculators.explanation')}
                 </div>
               </div>
             )}
@@ -426,26 +426,26 @@ const PowerPerformanceCalculator: React.FC<PowerPerformanceCalculatorProps> = ({
             {dualTimePrediction && (
               <div className="mt-4 p-4 bg-gradient-to-r from-purple-900/30 to-red-900/30 rounded-lg border border-yellow-500/50">
                 <h4 className="text-yellow-400 font-semibold mb-2 flex items-center">
-                  🔀 Zona di Transizione (2-3min) - Confronto Modelli
+                  🔀 {t('calculators.transition_zone')}
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div className="text-center">
-                    <div className="text-purple-300 font-medium">APR Model</div>
+                    <div className="text-purple-300 font-medium">{t('calculators.apr_model')}</div>
                     <div className="text-white font-bold text-lg">{formatForDisplay.time(dualTimePrediction.aprTime)}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-red-300 font-medium">CP-W' Model</div>
+                    <div className="text-red-300 font-medium">{t('calculators.cpw_model')}</div>
                     <div className="text-white font-bold text-lg">{formatForDisplay.time(dualTimePrediction.cpwTime)}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-yellow-300 font-medium">Differenza</div>
+                    <div className="text-yellow-300 font-medium">{t('calculators.difference')}</div>
                     <div className="text-white font-bold text-lg">
                       {formatForDisplay.time(dualTimePrediction.difference)} ({dualTimePrediction.differencePercent.toFixed(1)}%)
                     </div>
                   </div>
                 </div>
                 <p className="text-xs text-slate-400 mt-2 text-center">
-                  Entrambi i modelli predicono durate nella zona 2-3min. Risultato principale: durata più breve (conservativo).
+                  {t('calculators.transition_explanation')}
                 </p>
               </div>
             )}
@@ -453,11 +453,11 @@ const PowerPerformanceCalculator: React.FC<PowerPerformanceCalculatorProps> = ({
             {calculatedTime && !isNaN(calculatedTime) && (
               <div className="mt-4 p-3 bg-slate-900 rounded border border-slate-600">
                 <p className="text-xs text-slate-400">
-                  <strong>Potenza:</strong> {inputPower} W •{' '}
-                  <strong>Modello utilizzato:</strong> {usedModelTime}
+                  <strong>{t('calculators.power')}:</strong> {inputPower} W •{' '}
+                  <strong>{t('calculators.model_used')}:</strong> {usedModelTime}
                 </p>
                 <div className="mt-2 text-xs text-slate-500">
-                  <strong>Logica di selezione:</strong> APR prima per alte potenze, poi CP-W', infine Power Law per basse potenze
+                  <strong>{t('calculators.automatic_selection')}:</strong> {t('calculators.explanation')}
                 </div>
               </div>
             )}

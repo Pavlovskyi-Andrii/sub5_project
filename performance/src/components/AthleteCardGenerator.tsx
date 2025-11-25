@@ -15,6 +15,7 @@ import ImageCropper from './ImageCropper';
 import InstagramStoryTemplate from './InstagramStoryTemplate';
 import SocialShareModal from './SocialShareModal';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 
 // Avatar di default
 import avatarMaleVector from '@/assets/avatar-male-vector.png';
@@ -47,6 +48,7 @@ const AthleteCardGenerator: React.FC<AthleteCardGeneratorProps> = ({
   bodyWeight,
   gender: initialGender
 }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [athleteName, setAthleteName] = useState('');
   const [gender, setGender] = useState<Gender>(initialGender);
@@ -56,7 +58,7 @@ const AthleteCardGenerator: React.FC<AthleteCardGeneratorProps> = ({
   const [showImageCropper, setShowImageCropper] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState<string>('');
   const [showSocialModal, setShowSocialModal] = useState(false);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -128,19 +130,19 @@ const AthleteCardGenerator: React.FC<AthleteCardGeneratorProps> = ({
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button 
+          <Button
             className="bg-gradient-to-r from-lime-400 to-green-500 hover:from-lime-500 hover:to-green-600 text-slate-900 font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg"
             disabled={!models.valid}
           >
             <ImageIcon className="mr-2 h-4 w-4" />
-            Crea Card Atleta
+            {t('calculators.create_card')}
           </Button>
         </DialogTrigger>
-        
+
         <DialogContent className="sm:max-w-5xl bg-slate-800 border-slate-700 max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-lime-400 text-2xl">
-              Genera la tua Card Atleta
+              {t('calculators.generate_card')}
             </DialogTitle>
           </DialogHeader>
 

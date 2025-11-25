@@ -227,7 +227,7 @@ const RunningCurveModeler = () => {
                 </div>
                 <div className="text-center">
                   <span className="font-semibold bg-slate-700 text-lime-400 px-3 py-1 rounded">
-                    Tempo totale: {formatForDisplay.time(thresholdMinutes * 60 + thresholdSeconds)}
+                    {t('calculators.total_time')}: {formatForDisplay.time(thresholdMinutes * 60 + thresholdSeconds)}
                   </span>
                 </div>
               </CardContent>
